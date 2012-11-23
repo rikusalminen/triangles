@@ -1,0 +1,6 @@
+[submodule "ext/glwt"]
+	path = ext/glwt
+	url = git://github.com/rikusalminen/glwt.git
+[submodule "ext/threedee-simd"]
+	path = ext/threedee-simd
+	url = git://github.com/rikusalminen/threedee-simd.git
