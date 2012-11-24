@@ -23,5 +23,5 @@ void main()
     color =
         light_ambient +
         light_diffuse * clamp(dot(frag.normal, light_vec), 0, 1) +
-        light_specular * pow(clamp(dot(eye_vec, reflect(light_vec, frag.normal)), 0, 1), light_shininess);
+        light_specular * pow(clamp(dot(eye_vec, reflect(-light_vec, frag.normal)), 0, 1), light_shininess);
 }
