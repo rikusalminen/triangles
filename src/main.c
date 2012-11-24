@@ -8,10 +8,26 @@
 
 extern unsigned shader_load(const char *vert, const char *tess_ctrl, const char *tess_eval, const char *geom, const char *frag);
 
+static const GLenum query_targets[] = {
+    GL_TIME_ELAPSED,
+    GL_SAMPLES_PASSED,
+    GL_PRIMITIVES_GENERATED,
+};
+
+static const char* query_names[] = {
+    "time elapsed",
+    "samples passed",
+    "primitives generated",
+};
+
+#define num_queries (sizeof(query_targets)/sizeof(*query_targets))
+
 struct gfx
 {
     unsigned vertex_buffer;
     unsigned vertex_array;
+
+    unsigned queries[num_queries];
 
     unsigned program;
 };
@@ -20,6 +36,8 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
     gfx->program = shader_load("shaders/simple/simple.glslv", "", "", "", "shaders/simple/simple.glslf");
+
+    glGenQueries(num_queries, gfx->queries);
 
     const float vertex_data[] = {
         -1.0, -1.0, 0.0, 1.0,       0.0, 0.0, 1.0, 0.0,
@@ -63,6 +81,9 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
     float t = frame / 60.0;
+
+    for(unsigned i = 0; i < num_queries; ++i)
+        glBeginQuery(query_targets[i], gfx->queries[i]);
 
     const float background[] = { 0.2, 0.4, 0.7, 1.0 };
     glClearBufferfv(GL_COLOR, 0, background);
@@ -113,12 +134,19 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glBindVertexArray(gfx->vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
+    for(unsigned i = 0; i < num_queries; ++i)
+        glEndQuery(query_targets[i]);
 }
 
 static void main_loop(GLWTWindow *window)
 {
     struct gfx gfx;
     init_gfx(window, &gfx);
+
+    printf("Version: %s\n", (const char *)glGetString(GL_VERSION));
+    printf("Vendor: %s\n", (const char *)glGetString(GL_VENDOR));
+    printf("Renderer: %s\n", (const char *)glGetString(GL_RENDERER));
+    printf("GLSL Version: %s\n", (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION));
 
     int frame = 0;
 
@@ -127,7 +155,20 @@ static void main_loop(GLWTWindow *window)
         int width, height;
         glwtWindowGetSize(window, &width, &height);
         paint(&gfx, width, height, frame++);
+
+        uint64_t query_results[num_queries];
+        for(unsigned i = 0; i < num_queries; ++i)
+            glGetQueryObjectui64v(gfx.queries[i], GL_QUERY_RESULT, &query_results[i]);
+
         assert(glGetError() == GL_NO_ERROR);
+
+        const int str_size = 1024;
+        char str[str_size];
+        char *ptr = str;
+        for(unsigned i = 0; i < num_queries; ++i)
+            ptr += snprintf(ptr, str_size - (ptr - str), "%s: %lu  ", query_names[i], query_results[i]);
+        glwtWindowSetTitle(window, str);
+
         glwtSwapBuffers(window);
 
         glwtEventHandle(0);
@@ -158,8 +199,8 @@ int main(int argc, char *argv[])
     };
 
     GLWTWindow *window = 0;
-    if(glwtInit(&config, NULL) != 0 ||
-        !(window = glwtWindowCreate("", 1024, 768, NULL, NULL)))
+    if(glwtInit(&config, NULL, NULL) != 0 ||
+        !(window = glwtWindowCreate("", 1024, 768, NULL, NULL, NULL)))
     {
         glwtQuit();
         return -1;
