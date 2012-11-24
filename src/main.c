@@ -138,6 +138,15 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
         glEndQuery(query_targets[i]);
 }
 
+static void parse_gl_version(const char *str, int *major, int *minor, int *gles)
+{
+    // GL version string: "major.minor" or "OpenGL ES major.minor"
+    int es = str[0] == 'O';
+    *major = str[es ? 10 : 0] - '0'; // TODO: Update this when OpenGL 10.0 comes around :D
+    *minor = str[es ? 12 : 2] - '0'; // ...or x.10
+    *gles = es;
+}
+
 static void main_loop(GLWTWindow *window)
 {
     struct gfx gfx;
@@ -147,6 +156,11 @@ static void main_loop(GLWTWindow *window)
     printf("Vendor: %s\n", (const char *)glGetString(GL_VENDOR));
     printf("Renderer: %s\n", (const char *)glGetString(GL_RENDERER));
     printf("GLSL Version: %s\n", (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION));
+
+    int major, minor, gles;
+    parse_gl_version((const char*)glGetString(GL_VERSION), &major, &minor, &gles);
+
+    printf("OpenGL%s %d.%d\n", gles ? " ES" : "", major, minor);
 
     int frame = 0;
 
