@@ -6,56 +6,6 @@
 
 #include <threedee/threedee.h>
 
-static void cube_gen(float *vertex_data)
-{
-    for(int face = 0; face < 6; ++face)
-    {
-        int axis = face % 3;
-        int sign = face / 3;
-        int uaxis = (axis + 2) % 3;
-        int vaxis = (axis + 1) % 3;
-
-        for(int vertex = 0; vertex < 4; ++vertex)
-        {
-            int u = vertex / 2;
-            int v = vertex % 2;
-
-            float *vertex_ptr = vertex_data + (face * 4 + vertex) * 16;
-            vertex_ptr[axis] = sign ? -1.0 : 1.0;
-            vertex_ptr[uaxis] = -(2*u-1);
-            vertex_ptr[vaxis] = (sign ? (2*v-1) : -(2*v-1));
-            vertex_ptr[3] = 1.0;
-
-            float *normal_ptr = vertex_ptr + 4;
-            normal_ptr[axis] = sign ? -1.0 : 1.0;
-            normal_ptr[uaxis] = 0;
-            normal_ptr[vaxis] = 0;
-            normal_ptr[3] = 0.0;
-
-            float *tangent_ptr = vertex_ptr + 12;
-            tangent_ptr[axis] = 0.0;
-            tangent_ptr[uaxis] = sign ? 1.0 : -1.0;
-            tangent_ptr[vaxis] = 0.0;
-            tangent_ptr[3] = 0.0;
-
-            float *uv_ptr = vertex_ptr + 12;
-            uv_ptr[0] = u;
-            uv_ptr[1] = v;
-            uv_ptr[2] = 0.0;
-            uv_ptr[3] = 0.0;
-        }
-    }
-}
-
-static const uint16_t cube_indices[] = {
-    0, 9, 1, 6, 2, 18, 3, 22, 0xffff,
-    4, 1, 5, 10, 6, 22, 7, 14, 0xffff,
-    8, 5, 9, 2, 10, 14, 11, 18, 0xffff,
-    12, 10, 13, 17, 14, 5, 15, 21, 0xffff,
-    16, 2, 17, 21, 18, 9, 19, 13, 0xffff,
-    20, 6, 21, 13, 22, 1, 23, 17, 0xffff,
-};
-
 extern unsigned shader_load(const char *vert, const char *tess_ctrl, const char *tess_eval, const char *geom, const char *frag);
 
 static const GLenum query_targets[] = {
@@ -83,6 +33,31 @@ struct gfx
     unsigned program;
 };
 
+static unsigned load_buffer(const char *filename)
+{
+    FILE *f = fopen(filename, "rb");
+    assert(f != NULL);
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    unsigned buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, size, NULL, GL_STATIC_DRAW);
+
+    void *ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+
+    size_t bytes_read = fread(ptr, 1, size, f);
+
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+    fclose(f);
+
+    assert(bytes_read == size);
+
+    return buffer;
+}
+
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
@@ -90,17 +65,8 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
     glGenQueries(num_queries, gfx->queries);
 
-    glGenBuffers(1, &gfx->vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 24 * 16 * sizeof(float), NULL, GL_STATIC_DRAW);
-
-    void *ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-    cube_gen((float*)ptr);
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-
-    glGenBuffers(1, &gfx->index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gfx->index_buffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    gfx->vertex_buffer = load_buffer("../trimuncher/Suzanne.vbo");
+    gfx->index_buffer = load_buffer("../trimuncher/Suzanne.ibo");
 
     glGenVertexArrays(1, &gfx->vertex_array);
     glBindVertexArray(gfx->vertex_array);
@@ -108,17 +74,19 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gfx->index_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
 
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 16*sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 16*sizeof(float), (void*)0 + 4*sizeof(float));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)0 + 4*sizeof(float));
     glEnableVertexAttribArray(1);
 
+    /*
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 16*sizeof(float), (void*)0 + 8*sizeof(float));
     glEnableVertexAttribArray(2);
 
     glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(float), (void*)0 + 12*sizeof(float));
     glEnableVertexAttribArray(3);
+    */
 
     glBindVertexArray(0);
 }
@@ -150,6 +118,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -195,7 +165,9 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
 
     glBindVertexArray(gfx->vertex_array);
-    glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+    //glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+    //glDrawElements(GL_TRIANGLES_ADJACENCY, 6084/2, GL_UNSIGNED_SHORT, (void*)0);
+    glDrawElements(GL_TRIANGLES, 6084/2, GL_UNSIGNED_SHORT, (void*)0);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
