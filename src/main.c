@@ -31,6 +31,16 @@ struct gfx
     unsigned queries[num_queries];
 
     unsigned program;
+
+    unsigned shadowmap_shadow_program;
+    unsigned shadowmap_light_program;
+
+    int shadowmap_width, shadowmap_height;
+    unsigned shadowmap_texture;
+    unsigned shadowmap_framebuf;
+
+    unsigned texview_program;
+    unsigned texview_sampler;
 };
 
 static unsigned load_buffer(const char *filename)
@@ -61,7 +71,22 @@ static unsigned load_buffer(const char *filename)
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
+
+    GLint num_formats;
+    glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &num_formats);
+    GLint formats[num_formats];
+    glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, &formats[0]);
+
+    printf("%d compressed texture formats:\n", num_formats);
+    for(int i = 0; i < num_formats; ++i)
+        printf("%X\n", formats[i]);
+
+
     gfx->program = shader_load("shaders/simple/simple.glslv", "", "", "", "shaders/simple/simple.glslf");
+    gfx->texview_program = shader_load("shaders/texview/texview.glslv", "", "", "", "shaders/texview/texview.glslf");
+
+    gfx->shadowmap_shadow_program = shader_load("shaders/shadowmap/shadowmap_shadow.glslv", "", "", "", "");
+    gfx->shadowmap_light_program = shader_load("shaders/shadowmap/shadowmap_light.glslv", "", "", "", "shaders/shadowmap/shadowmap_light.glslf");
 
     glGenQueries(num_queries, gfx->queries);
 
@@ -89,6 +114,24 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     */
 
     glBindVertexArray(0);
+
+    gfx->shadowmap_width = 512;
+    gfx->shadowmap_height = 512;
+
+    glGenTextures(1, &gfx->shadowmap_texture);
+    glBindTexture(GL_TEXTURE_2D, gfx->shadowmap_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, gfx->shadowmap_width, gfx->shadowmap_height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+
+    glGenSamplers(1, &gfx->texview_sampler);
+    glSamplerParameteri(gfx->texview_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(gfx->texview_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glGenFramebuffers(1, &gfx->shadowmap_framebuf);
+    glBindFramebuffer(GL_FRAMEBUFFER, gfx->shadowmap_framebuf);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gfx->shadowmap_texture, 0);
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -107,14 +150,26 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
 
-    const float background[] = { 0.2, 0.4, 0.7, 1.0 };
-    glClearBufferfv(GL_COLOR, 0, background);
-
-    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
+    glUseProgram(0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     glViewport(0, 0, width, height);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+
+    const float background[] = { 0.2, 0.4, 0.7, 1.0 };
+    glClearBufferfv(GL_COLOR, 0, background);
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
+
+#if 1
+    glBindFramebuffer(GL_FRAMEBUFFER, gfx->shadowmap_framebuf);
+    glViewport(0, 0, gfx->shadowmap_width, gfx->shadowmap_height);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDepthMask(GL_TRUE);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
+#endif
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
@@ -124,22 +179,24 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    glUseProgram(gfx->program);
+    glUseProgram(gfx->shadowmap_shadow_program);
 
     int index;
-    mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
-    index = glGetUniformLocation(gfx->program, "projection_matrix");
+    //mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
+    mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)gfx->shadowmap_width/gfx->shadowmap_height, 0.1, 10.0);
+    index = glGetUniformLocation(gfx->shadowmap_shadow_program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
 
     mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
-    index = glGetUniformLocation(gfx->program, "view_matrix");
+    index = glGetUniformLocation(gfx->shadowmap_shadow_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
     //mat4 model_matrix = midentity();
     mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
-    index = glGetUniformLocation(gfx->program, "model_matrix");
+    index = glGetUniformLocation(gfx->shadowmap_shadow_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
+#if 0
     mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
     index = glGetUniformLocation(gfx->program, "normal_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&normal_matrix);
@@ -159,6 +216,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->program, "light_position");
     glUniform4f(index, 2.0, 0.0, 0.0, 1.0);
     //glUniform4f(index, 2*cos(t), 0.0, 2*sin(t), 1.0);
+#endif
 
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(0xffff);
@@ -168,6 +226,42 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     //glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
     //glDrawElements(GL_TRIANGLES_ADJACENCY, 6084/2, GL_UNSIGNED_SHORT, (void*)0);
     glDrawElements(GL_TRIANGLES, 6084/2, GL_UNSIGNED_SHORT, (void*)0);
+
+#if 0
+    int viewport[4];
+    uint32_t pixel;
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glReadPixels(
+            viewport[0] + viewport[2] / 2,
+            viewport[1] + viewport[3] / 2,
+            1, 1,
+            GL_DEPTH_COMPONENT,
+            GL_UNSIGNED_INT,
+            &pixel
+            );
+    printf("%08X\n", pixel);
+    //glTexSubImage2D();
+#endif
+
+    // texview
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, width, height);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_FALSE);
+
+    glUseProgram(gfx->texview_program);
+
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_2D, gfx->shadowmap_texture);
+    glBindSampler(0, gfx->texview_sampler);
+
+    glUniform1i(0, 0);
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
