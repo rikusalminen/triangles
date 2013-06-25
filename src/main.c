@@ -33,7 +33,7 @@ struct gfx
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
-    gfx->ico_program = shader_load("shaders/icosphere/icosphere.glslv", "", "", "", "shaders/icosphere/icosphere.glslf");
+    gfx->ico_program = shader_load("shaders/icosphere/icosphere.glslv", "", "",  "shaders/icosphere/icosphere.glslg", "shaders/icosphere/icosphere.glslf");
 
     glGenVertexArrays(1, &gfx->ico_vertex_array);
 
