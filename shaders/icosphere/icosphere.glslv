@@ -26,7 +26,5 @@ void main()
 
     vec3 xyz = vec3(cos(lon) * cos(lat), sin(lon) * cos(lat), sin(lat));
 
-    //gl_Position = vec4(u, v, 0, 1);
-    //gl_Position = vec4(2 * u - 1, -(2.0 * v - 1), 0, 1);
     gl_Position = projection_matrix * model_matrix * vec4(xyz, 1.0);
 }

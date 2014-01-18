@@ -1,0 +1,12 @@
+#version 420
+
+layout(triangles, equal_spacing, ccw) in;
+
+void main()
+{
+    gl_Position = vec4(normalize(
+        gl_TessCoord.x * gl_in[0].gl_Position.xyz +
+        gl_TessCoord.y * gl_in[1].gl_Position.xyz +
+        gl_TessCoord.z * gl_in[2].gl_Position.xyz),
+            1.0);
+}

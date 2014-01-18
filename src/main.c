@@ -33,7 +33,8 @@ struct gfx
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
-    gfx->ico_program = shader_load("shaders/icosphere/icosphere.glslv", "", "",  "shaders/icosphere/icosphere.glslg", "shaders/icosphere/icosphere.glslf");
+    gfx->ico_program = shader_load("shaders/icosphere/icosphere.glslv", "shaders/icosphere/icosphere.glsltc", "shaders/icosphere/icosphere.glslte",  "shaders/icosphere/icosphere.glslg", "shaders/icosphere/icosphere.glslf");
+
 
     glGenVertexArrays(1, &gfx->ico_vertex_array);
 
@@ -44,6 +45,7 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
 
+    glDeleteVertexArrays(1, &gfx->ico_vertex_array);
     glDeleteProgram(gfx->ico_program);
 }
 
@@ -94,10 +96,13 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glPrimitiveRestartIndex(0xffff);
 
     glPointSize(5.0);
-    glLineWidth(5.0);
+    glLineWidth(1.0);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDrawArrays(GL_TRIANGLES, 0, 60);
+    //glDrawArrays(GL_TRIANGLES, 0, 60);
     //glDrawArrays(GL_TRIANGLES, 0, ((frame/30)%20 + 1)*3);
+
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
+    glDrawArrays(GL_PATCHES, 0, 60);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
