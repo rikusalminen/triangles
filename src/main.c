@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <GLWT/glwt.h>
 #include <GLXW/glxw.h>
@@ -28,6 +29,8 @@ struct gfx
 
     unsigned ico_program;
     unsigned ico_vertex_array;
+
+    int lod_level;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -92,6 +95,9 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->ico_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
+    index = glGetUniformLocation(gfx->ico_program, "lod_level");
+    glUniform1i(index, gfx->lod_level);
+
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(0xffff);
 
@@ -101,8 +107,10 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     //glDrawArrays(GL_TRIANGLES, 0, 60);
     //glDrawArrays(GL_TRIANGLES, 0, ((frame/30)%20 + 1)*3);
 
+    int num_triangles = 5 * (4 << (2 * gfx->lod_level));
+
     glPatchParameteri(GL_PATCH_VERTICES, 3);
-    glDrawArrays(GL_PATCHES, 0, 60);
+    glDrawArrays(GL_PATCHES, 0, 3 * num_triangles);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -117,10 +125,9 @@ static void parse_gl_version(const char *str, int *major, int *minor, int *gles)
     *gles = es;
 }
 
-static void main_loop(GLWTWindow *window)
+static void main_loop(GLWTWindow *window, struct gfx *gfx)
 {
-    struct gfx gfx;
-    init_gfx(window, &gfx);
+    init_gfx(window, gfx);
 
     printf("Version: %s\n", (const char *)glGetString(GL_VERSION));
     printf("Vendor: %s\n", (const char *)glGetString(GL_VENDOR));
@@ -138,11 +145,11 @@ static void main_loop(GLWTWindow *window)
     {
         int width, height;
         glwtWindowGetSize(window, &width, &height);
-        paint(&gfx, width, height, frame++);
+        paint(gfx, width, height, frame++);
 
         uint64_t query_results[num_queries];
         for(unsigned i = 0; i < num_queries; ++i)
-            glGetQueryObjectui64v(gfx.queries[i], GL_QUERY_RESULT, &query_results[i]);
+            glGetQueryObjectui64v(gfx->queries[i], GL_QUERY_RESULT, &query_results[i]);
 
         assert(glGetError() == GL_NO_ERROR);
 
@@ -158,7 +165,31 @@ static void main_loop(GLWTWindow *window)
         glwtEventHandle(0);
     }
 
-    quit_gfx(window, &gfx);
+    quit_gfx(window, gfx);
+}
+
+static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, void *userdata)
+{
+    (void)window;
+
+    struct gfx *gfx = (struct gfx*)userdata;
+
+    if(event->type == GLWT_WINDOW_KEY_DOWN)
+    {
+        switch(event->key.keysym)
+        {
+            case GLWT_KEY_PLUS:
+            case GLWT_KEY_KEYPAD_PLUS:
+                gfx->lod_level++;
+                break;
+            case GLWT_KEY_MINUS:
+            case GLWT_KEY_KEYPAD_MINUS:
+                if(gfx->lod_level > 0) gfx->lod_level--;
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 extern void APIENTRY gl_debug_callback(
@@ -182,9 +213,12 @@ int main(int argc, char *argv[])
         4, 2
     };
 
+    struct gfx gfx;
+    memset(&gfx, 0, sizeof(struct gfx));
+
     GLWTWindow *window = 0;
     if(glwtInit(&config, NULL, NULL) != 0 ||
-        !(window = glwtWindowCreate("", 1024, 768, NULL, NULL, NULL)))
+        !(window = glwtWindowCreate("", 1024, 768, NULL, event_callback, &gfx)))
     {
         glwtQuit();
         return -1;
@@ -202,7 +236,7 @@ int main(int argc, char *argv[])
         glDebugMessageCallbackARB(&gl_debug_callback, debug_data);
     }
 
-    main_loop(window);
+    main_loop(window, &gfx);
 
     glwtWindowDestroy(window);
     glwtQuit();
