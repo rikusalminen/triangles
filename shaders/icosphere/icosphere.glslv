@@ -2,9 +2,6 @@
 
 const float pi = 3.141592653589;
 
-uniform mat4 projection_matrix;
-uniform mat4 model_matrix;
-
 void main()
 {
     int tri = gl_VertexID / 3;
@@ -26,5 +23,5 @@ void main()
 
     vec3 xyz = vec3(cos(lon) * cos(lat), sin(lon) * cos(lat), sin(lat));
 
-    gl_Position = projection_matrix * model_matrix * vec4(xyz, 1.0);
+    gl_Position = vec4(xyz, 1.0);
 }
