@@ -1,38 +1,38 @@
 #version 420
 
 layout(triangles) in;
-layout(triangle_strip, max_vertices = 12) out;
+layout(triangle_strip, max_vertices = 256) out;
 
 uniform mat4 projection_matrix;
 uniform mat4 model_matrix;
 
+uniform int lod_level;
+
 void main()
 {
+    int rows = min(max(lod_level, 1), 15);
+
     vec4 v0 = gl_in[0].gl_Position;
     vec4 v1 = gl_in[1].gl_Position;
     vec4 v2 = gl_in[2].gl_Position;
 
-    vec4 e0 = vec4(normalize((0.5 * (v0 + v1)).xyz), 1.0);
-    vec4 e1 = vec4(normalize((0.5 * (v1 + v2)).xyz), 1.0);
-    vec4 e2 = vec4(normalize((0.5 * (v2 + v0)).xyz), 1.0);
+    vec4 u = (v1 - v0) / float(rows);
+    vec4 v = (v2 - v0) / float(rows);
 
-    gl_Position = projection_matrix * model_matrix * v0; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e0; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e2; EmitVertex();
-    EndPrimitive();
+    for(int i = 0; i < rows; ++i)
+    {
+        for(int j = 0; j < (rows-i); ++j)
+        {
+            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+0)*u + (j)*v).xyz), 1.0);
+            EmitVertex();
 
-    gl_Position = projection_matrix * model_matrix * e0; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e1; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e2; EmitVertex();
-    EndPrimitive();
+            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+1)*u + (j)*v).xyz), 1.0);
+            EmitVertex();
+        }
 
-    gl_Position = projection_matrix * model_matrix * e0; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * v1; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e1; EmitVertex();
-    EndPrimitive();
+        gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + i*u + (rows-i)*v).xyz), 1.0);
+        EmitVertex();
 
-    gl_Position = projection_matrix * model_matrix * e2; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * e1; EmitVertex();
-    gl_Position = projection_matrix * model_matrix * v2; EmitVertex();
-    EndPrimitive();
+        EndPrimitive();
+    }
 }
