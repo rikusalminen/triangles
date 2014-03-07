@@ -31,6 +31,7 @@ struct gfx
     unsigned ico_vertex_array;
 
     int lod_level;
+    int outer_level, inner_level;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -90,13 +91,19 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
 
     //mat4 model_matrix = midentity();
-    mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -5, 0)), mat_euler(vec(0, t, 0, 0)));
+    mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t, 0, 0)));
     //mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
     index = glGetUniformLocation(gfx->ico_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
     index = glGetUniformLocation(gfx->ico_program, "lod_level");
     glUniform1i(index, gfx->lod_level);
+
+    index = glGetUniformLocation(gfx->ico_program, "outer_level");
+    glUniform1i(index, gfx->outer_level);
+
+    index = glGetUniformLocation(gfx->ico_program, "inner_level");
+    glUniform1i(index, gfx->inner_level);
 
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(0xffff);
@@ -105,8 +112,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glLineWidth(1.0);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    glPatchParameteri(GL_PATCH_VERTICES, 3);
-    glDrawArrays(GL_PATCHES, 0, 36);
+    glPatchParameteri(GL_PATCH_VERTICES, 4);
+    glDrawArrays(GL_PATCHES, 0, 24);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -154,7 +161,9 @@ static void main_loop(GLWTWindow *window, struct gfx *gfx)
         char *ptr = str;
         for(unsigned i = 0; i < num_queries; ++i)
             ptr += snprintf(ptr, str_size - (ptr - str), "%s: %lu  ", query_names[i], query_results[i]);
-        ptr += snprintf(ptr, str_size - (ptr - str), "LOD: %d", gfx->lod_level);
+        ptr += snprintf(ptr, str_size - (ptr - str), "LOD: %d  ", gfx->lod_level);
+        ptr += snprintf(ptr, str_size - (ptr - str), "inner: %d  ", gfx->inner_level);
+        ptr += snprintf(ptr, str_size - (ptr - str), "outer: %d  ", gfx->outer_level);
         glwtWindowSetTitle(window, str);
 
         glwtSwapBuffers(window);
@@ -182,6 +191,12 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             case GLWT_KEY_MINUS:
             case GLWT_KEY_KEYPAD_MINUS:
                 if(gfx->lod_level > 0) gfx->lod_level--;
+                break;
+            case GLWT_KEY_O:
+                gfx->outer_level += (event->key.mod & GLWT_MOD_SHIFT) ? -1 : 1;
+                break;
+            case GLWT_KEY_I:
+                gfx->inner_level += (event->key.mod & GLWT_MOD_SHIFT) ? -1 : 1;
                 break;
             default:
                 break;

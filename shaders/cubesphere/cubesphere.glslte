@@ -1,14 +1,14 @@
 #version 420
 
-layout(triangles, equal_spacing, ccw) in;
+layout(quads, equal_spacing, ccw) in;
 
 void main()
 {
-    gl_Position = vec4((
-        gl_TessCoord.x * gl_in[0].gl_Position.xyz +
-        gl_TessCoord.y * gl_in[1].gl_Position.xyz +
-        gl_TessCoord.z * gl_in[2].gl_Position.xyz) /
-        (gl_TessCoord.x+gl_TessCoord.y+gl_TessCoord.z),
+    gl_Position = vec4(
+            mix(
+                mix(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, gl_TessCoord.x),
+                mix(gl_in[3].gl_Position.xyz, gl_in[2].gl_Position.xyz, gl_TessCoord.x),
+                gl_TessCoord.y),
             1.0);
 
 }
