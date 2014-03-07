@@ -1,0 +1,38 @@
+#version 420
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 256) out;
+
+uniform mat4 projection_matrix;
+uniform mat4 model_matrix;
+
+uniform int lod_level;
+
+void main()
+{
+    int rows = min(max(lod_level, 1), 15);
+
+    vec4 v0 = gl_in[0].gl_Position;
+    vec4 v1 = gl_in[1].gl_Position;
+    vec4 v2 = gl_in[2].gl_Position;
+
+    vec4 u = (v1 - v0) / float(rows);
+    vec4 v = (v2 - v0) / float(rows);
+
+    for(int i = 0; i < rows; ++i)
+    {
+        for(int j = 0; j < (rows-i); ++j)
+        {
+            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+0)*u + (j)*v).xyz), 1.0);
+            EmitVertex();
+
+            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+1)*u + (j)*v).xyz), 1.0);
+            EmitVertex();
+        }
+
+        gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + i*u + (rows-i)*v).xyz), 1.0);
+        EmitVertex();
+
+        EndPrimitive();
+    }
+}
