@@ -8,29 +8,39 @@ uniform mat4 model_matrix;
 
 uniform int lod_level;
 
+vec3 slerp(vec3 a, vec3 b, float t)
+{
+    float cosine = dot(a, b);
+    float sine = sqrt(1 - cosine * cosine);
+    float theta = acos(cosine);
+
+    return (sin((1-t)*theta)/sine) * a + (sin(t*theta)/sine) * b;
+}
+
 void main()
 {
     int rows = min(max(lod_level, 1), 15);
 
-    vec4 v0 = gl_in[0].gl_Position;
-    vec4 v1 = gl_in[1].gl_Position;
-    vec4 v2 = gl_in[2].gl_Position;
-
-    vec4 u = (v1 - v0) / float(rows);
-    vec4 v = (v2 - v0) / float(rows);
-
     for(int i = 0; i < rows; ++i)
     {
+        vec3 bottomleft = slerp(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, i / float(rows));
+        vec3 topleft = slerp(gl_in[2].gl_Position.xyz, gl_in[1].gl_Position.xyz, i / float(rows));
+
+        vec3 bottomright = slerp(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, (i+1) / float(rows));
+        vec3 topright = slerp(gl_in[2].gl_Position.xyz, gl_in[1].gl_Position.xyz, (i+1) / float(rows));
+
         for(int j = 0; j < (rows-i); ++j)
         {
-            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+0)*u + (j)*v).xyz), 1.0);
+            gl_Position = projection_matrix * model_matrix *
+                vec4(slerp(bottomleft, topleft, j/float(rows-i)), 1.0);
             EmitVertex();
 
-            gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + (i+1)*u + (j)*v).xyz), 1.0);
+            gl_Position = projection_matrix * model_matrix *
+                vec4(slerp(bottomright, topright, (rows-i) == 1 ? 1 : j/float(rows-i-1)), 1.0);
             EmitVertex();
         }
 
-        gl_Position = projection_matrix * model_matrix * vec4(normalize((v0 + i*u + (rows-i)*v).xyz), 1.0);
+        gl_Position = projection_matrix * model_matrix * vec4(topleft, 1.0);
         EmitVertex();
 
         EndPrimitive();
