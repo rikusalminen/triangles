@@ -112,8 +112,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glLineWidth(1.0);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    glPatchParameteri(GL_PATCH_VERTICES, 4);
-    glDrawArrays(GL_PATCHES, 0, 24);
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
+    glDrawArrays(GL_PATCHES, 0, 18);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);

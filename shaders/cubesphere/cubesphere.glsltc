@@ -1,6 +1,6 @@
 #version 420
 
-layout(vertices = 4) out;
+layout(vertices = 3) out;
 
 uniform int inner_level;
 uniform int outer_level;

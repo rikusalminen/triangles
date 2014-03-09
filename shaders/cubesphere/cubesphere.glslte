@@ -13,10 +13,14 @@ vec3 slerp(vec3 a, vec3 b, float t)
 
 void main()
 {
+    vec3 v1 = gl_in[0].gl_Position.xyz;
+    vec3 v2 = gl_in[1].gl_Position.xyz;
+    vec3 v3 = gl_in[2].gl_Position.xyz;
+    vec3 v4 = v3 + (v2 - v1);
     gl_Position = vec4(
         slerp(
-            slerp(normalize(gl_in[0].gl_Position.xyz), normalize(gl_in[1].gl_Position.xyz), gl_TessCoord.x),
-            slerp(normalize(gl_in[3].gl_Position.xyz), normalize(gl_in[2].gl_Position.xyz), gl_TessCoord.x),
+            slerp(v1, v2, gl_TessCoord.x),
+            slerp(v3, v4, gl_TessCoord.x),
             gl_TessCoord.y),
         1.0);
 

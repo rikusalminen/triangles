@@ -2,8 +2,8 @@
 
 void main()
 {
-    int idx = gl_VertexID % 4;
-    int face = gl_VertexID / 4;
+    int idx = gl_VertexID % 3;
+    int face = gl_VertexID / 3;
 
     int dir = face % 3;
     int pos = face / 3;
@@ -19,8 +19,7 @@ void main()
     vec3 u = -d.yzx;
     vec3 v = flip * d.zxy;
 
-    int gray = (idx >> 1) ^ idx;
-    vec3 xyz = n + (1-2*(gray&1))*u + (1-2*(gray>>1))*v;
+    vec3 xyz = n + (1-2*(idx&1))*u + (1-2*(idx>>1))*v;
 
-    gl_Position = vec4(xyz, 1.0);
+    gl_Position = vec4(normalize(xyz), 1.0);
 }
