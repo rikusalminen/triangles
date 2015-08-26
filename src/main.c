@@ -30,6 +30,8 @@ struct gfx
     unsigned ico_program;
     unsigned ico_vertex_array;
 
+    unsigned wire_program;
+
     int lod_level;
     int outer_level, inner_level;
 };
@@ -38,7 +40,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
     gfx->ico_program = shader_load("shaders/cubesphere/cubesphere.glslv", "shaders/cubesphere/cubesphere.glsltc", "shaders/cubesphere/cubesphere.glslte",  "shaders/cubesphere/cubesphere.glslg", "shaders/cubesphere/cubesphere.glslf");
-
+    gfx->wire_program = shader_load("shaders/wirecube/wirecube.glslv", "", "",  "", "shaders/wirecube/wirecube.glslf");
 
     glGenVertexArrays(1, &gfx->ico_vertex_array);
 
@@ -91,7 +93,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
 
     //mat4 model_matrix = midentity();
-    mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t, 0, 0)));
+    mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t/5, 0, 0)));
     //mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
     index = glGetUniformLocation(gfx->ico_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
@@ -114,6 +116,15 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     glPatchParameteri(GL_PATCH_VERTICES, 3);
     glDrawArrays(GL_PATCHES, 0, 18);
+
+    // WIRE CUBE
+    glUseProgram(gfx->wire_program);
+    index = glGetUniformLocation(gfx->wire_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
+    index = glGetUniformLocation(gfx->wire_program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
+
+    glDrawArrays(GL_LINES, 0, 24);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
