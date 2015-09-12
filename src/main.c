@@ -237,6 +237,9 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
 
             vec4 arcball_half = vunit(arcball_old + arcball_new);
             vec4 axis = vcross(arcball_old, arcball_half);
+
+            axis = qprod(qprod(gfx->arcball_quat, axis), qconj(gfx->arcball_quat));
+
             axis[3] = vdot(arcball_old, arcball_half)[0];
             vec4 quat = vunit(axis);
 
