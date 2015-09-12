@@ -38,6 +38,7 @@ struct gfx
     vec4 arcball_quat;
 
     float p, e;
+    float i, an, arg;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -130,7 +131,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
 
     float p = gfx->p, e = gfx->e;
-    //float i = 0.0, an = 0.0, arg = 0.0;
+    float i = gfx->i, an = gfx->an, arg = gfx->arg;
     float maxf = e <= 1.0 ? M_PI :
         M_PI - acosf(fminf(1.0, 1.0/e));
 
@@ -153,6 +154,22 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUniform1f(index, f2);
     index = glGetUniformLocation(gfx->conic_program, "num_vertices");
     glUniform1i(index, num_vertices);
+
+    vec4 major_axis = {
+        (cos(arg) * cos(an)) - (sin(arg) * sin(an) * cos(i)),
+        (sin(arg) * cos(an) * cos(i)) + (cos(arg) * sin(an)),
+        sin(arg) * sin(i),
+        0.0 };
+    vec4 minor_axis = {
+        -(cos(arg) * sin(an) * cos(i)) - (sin(arg) * cos(an)),
+        (cos(arg) * cos(an) * cos(i)) - (sin(arg) * sin(an)),
+        cos(arg) * sin(i),
+        0.0 };
+
+    index = glGetUniformLocation(gfx->conic_program, "major_axis");
+    glUniform4fv(index, 1, (const float*)&major_axis);
+    index = glGetUniformLocation(gfx->conic_program, "minor_axis");
+    glUniform4fv(index, 1, (const float*)&minor_axis);
 
     glDrawArrays(GL_LINES, 0, num_vertices);
 
@@ -266,6 +283,18 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             break;
         case 'E':
             gfx->e = fmaxf(0.0, gfx->e + 0.1*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0));
+            break;
+        case 'I':
+            gfx->i = fmaxf(0.0, fminf(M_PI,
+                gfx->i + (M_PI/16.0)*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0)));
+            break;
+        case 'N':
+            gfx->an = fmaxf(-M_PI, fminf(M_PI,
+                gfx->an + (M_PI/16.0)*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0)));
+            break;
+        case 'G':
+            gfx->arg = fmaxf(-M_PI, fminf(M_PI,
+                gfx->arg + (M_PI/16.0)*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0)));
             break;
         default:
             break;
