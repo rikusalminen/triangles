@@ -30,16 +30,21 @@ struct gfx
     unsigned axes_program;
     unsigned axes_vertex_array;
 
+    unsigned conic_program;
+
     float yaw, pitch;
     int mouse_x, mouse_y;
 
     vec4 arcball_quat;
+
+    float p, e;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
     gfx->axes_program = shader_load("shaders/axes/axes.glslv", "", "",  "", "shaders/axes/axes.glslf");
+    gfx->conic_program = shader_load("shaders/conic/conic.glslv", "", "",  "", "shaders/conic/conic.glslf");
 
     glGenVertexArrays(1, &gfx->axes_vertex_array);
 
@@ -49,6 +54,9 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->mouse_y = -1;
 
     gfx->arcball_quat = vec(0.0, 0.0, 0.0, 1.0);
+
+    gfx->p = 1.0;
+    gfx->e = 0.0;
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -109,6 +117,44 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     glLineWidth(1.0);
     glDrawArrays(GL_LINES, 0, 6);
+
+    // CONIC SECTION
+    glUseProgram(gfx->conic_program);
+
+    index = glGetUniformLocation(gfx->conic_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
+    index = glGetUniformLocation(gfx->conic_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
+    index = glGetUniformLocation(gfx->conic_program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
+
+
+    float p = gfx->p, e = gfx->e;
+    //float i = 0.0, an = 0.0, arg = 0.0;
+    float maxf = e <= 1.0 ? M_PI :
+        M_PI - acosf(fminf(1.0, 1.0/e));
+
+    float maxr = 5.0; // maximum radius
+    float cosf = (p/maxr - 1.0) / e;
+    float maxrf = acosf(fmaxf(-1.0, fminf(1.0, cosf)));
+
+    maxf = fminf(maxf, maxrf);
+
+    float f1 = -maxf, f2 = maxf;
+
+    int num_vertices = 256;
+    index = glGetUniformLocation(gfx->conic_program, "p");
+    glUniform1f(index, p);
+    index = glGetUniformLocation(gfx->conic_program, "e");
+    glUniform1f(index, e);
+    index = glGetUniformLocation(gfx->conic_program, "f1");
+    glUniform1f(index, f1);
+    index = glGetUniformLocation(gfx->conic_program, "f2");
+    glUniform1f(index, f2);
+    index = glGetUniformLocation(gfx->conic_program, "num_vertices");
+    glUniform1i(index, num_vertices);
+
+    glDrawArrays(GL_LINES, 0, num_vertices);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -208,6 +254,19 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
 
         gfx->mouse_x = event->motion.x;
         gfx->mouse_y = event->motion.y;
+    }
+
+    if(event->type == GLWT_WINDOW_KEY_DOWN) {
+        switch(event->key.keysym) {
+        case 'P':
+            gfx->p = fmaxf(0.0, gfx->p + 0.1*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0));
+            break;
+        case 'E':
+            gfx->e = fmaxf(0.0, gfx->e + 0.1*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0));
+            break;
+        default:
+            break;
+        };
     }
 }
 
