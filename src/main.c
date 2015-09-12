@@ -32,6 +32,8 @@ struct gfx
 
     float yaw, pitch;
     int mouse_x, mouse_y;
+
+    vec4 arcball_quat;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -45,6 +47,8 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
     gfx->mouse_x = -1;
     gfx->mouse_y = -1;
+
+    gfx->arcball_quat = vec(0.0, 0.0, 0.0, 1.0);
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -86,9 +90,12 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->axes_program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
 
+    //mat4 camera_rotation = mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0));
+    mat4 camera_rotation = quat_to_mat(gfx->arcball_quat);
     mat4 view_matrix = mmmul(
-        mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0)),
-        mtranslate(vec(0.0, 0.0, -5.0, 1.0));
+        mtranslate(vec(0.0, 0.0, -5.0, 1.0)),
+        camera_rotation
+        );
 
     index = glGetUniformLocation(gfx->axes_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
@@ -159,6 +166,13 @@ static void main_loop(GLWTWindow *window, struct gfx *gfx)
     quit_gfx(window, gfx);
 }
 
+vec4 arcball_vector(float x, float y) {
+    return x*x + y*y < 1.0 ?
+        vec(x, y, 1.0 - sqrt(x*x + y*y), 0.0) :
+        vunit(vec(x, y, 0.0, 0.0));
+
+}
+
 static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, void *userdata)
 {
     struct gfx *gfx = (struct gfx*)userdata;
@@ -170,11 +184,26 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
 
         if(event->motion.buttons & 1 &&
             gfx->mouse_x != -1 && gfx->mouse_y != -1) {
+            int old_x = gfx->mouse_x, old_y = gfx->mouse_y;
+            int new_x = event->motion.x, new_y = event->motion.y;
+            vec4 arcball_old = arcball_vector(2.0 * old_x/width - 1.0, -2.0*old_y/height + 1.0);
+            vec4 arcball_new = arcball_vector(2.0 * new_x/width - 1.0, -2.0*new_y/height + 1.0);
+
+            vec4 arcball_half = vunit(arcball_old + arcball_new);
+            vec4 axis = vcross(arcball_old, arcball_half);
+            axis[3] = vdot(arcball_old, arcball_half)[0];
+            vec4 quat = vunit(axis);
+
+            gfx->arcball_quat = qprod(quat, gfx->arcball_quat);
+
+            /*
             int dx = event->motion.x - gfx->mouse_x;
             int dy = event->motion.y - gfx->mouse_y;
 
-            gfx->yaw += (float)dx / width;
-            gfx->pitch += (float)dy / height;
+            float sensitivity = 2.0;
+            gfx->yaw += sensitivity * (float)dx / width;
+            gfx->pitch += sensitivity * (float)dy / height;
+            */
         }
 
         gfx->mouse_x = event->motion.x;
