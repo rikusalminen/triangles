@@ -29,6 +29,9 @@ struct gfx
 
     unsigned axes_program;
     unsigned axes_vertex_array;
+
+    float yaw, pitch;
+    int mouse_x, mouse_y;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -39,6 +42,9 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glGenVertexArrays(1, &gfx->axes_vertex_array);
 
     glGenQueries(num_queries, gfx->queries);
+
+    gfx->mouse_x = -1;
+    gfx->mouse_y = -1;
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -80,13 +86,17 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->axes_program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
 
-    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
+    mat4 view_matrix = mmmul(
+        mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0)),
+        mtranslate(vec(0.0, 0.0, -5.0, 1.0));
+
     index = glGetUniformLocation(gfx->axes_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
-    //mat4 model_matrix = midentity();
+    mat4 model_matrix = midentity();
     //mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t/5, 0, 0)));
-    mat4 model_matrix = mat_euler(vec(t/3, 0.0, 0.0, 0.0));
+    //mat4 model_matrix = mat_euler(vec(t/3, 0.0, 0.0, 0.0));
+    //mat4 model_matrix = mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0));
     index = glGetUniformLocation(gfx->axes_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
@@ -151,11 +161,25 @@ static void main_loop(GLWTWindow *window, struct gfx *gfx)
 
 static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, void *userdata)
 {
-    (void)window;
-
     struct gfx *gfx = (struct gfx*)userdata;
-    (void)gfx;
-    (void)event;
+
+    int width, height;
+    glwtWindowGetSize(window, &width, &height);
+
+    if(event->type == GLWT_WINDOW_MOUSE_MOTION) {
+
+        if(event->motion.buttons & 1 &&
+            gfx->mouse_x != -1 && gfx->mouse_y != -1) {
+            int dx = event->motion.x - gfx->mouse_x;
+            int dy = event->motion.y - gfx->mouse_y;
+
+            gfx->yaw += (float)dx / width;
+            gfx->pitch += (float)dy / height;
+        }
+
+        gfx->mouse_x = event->motion.x;
+        gfx->mouse_y = event->motion.y;
+    }
 }
 
 extern void APIENTRY gl_debug_callback(
