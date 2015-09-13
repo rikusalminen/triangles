@@ -32,6 +32,8 @@ struct gfx
 
     unsigned conic_program;
 
+    unsigned hsv_program;
+
     float yaw, pitch;
     int mouse_x, mouse_y;
 
@@ -46,6 +48,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     (void)window;
     gfx->axes_program = shader_load("shaders/axes/axes.glslv", "", "",  "", "shaders/axes/axes.glslf");
     gfx->conic_program = shader_load("shaders/conic/conic.glslv", "", "",  "", "shaders/conic/conic.glslf");
+    gfx->hsv_program = shader_load("shaders/hsv/hsv.glslv", "", "",  "", "shaders/hsv/hsv.glslf");
 
     glGenVertexArrays(1, &gfx->axes_vertex_array);
 
@@ -172,6 +175,10 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUniform4fv(index, 1, (const float*)&minor_axis);
 
     glDrawArrays(GL_LINES, 0, num_vertices);
+
+    // HSV palette
+    glUseProgram(gfx->hsv_program);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
