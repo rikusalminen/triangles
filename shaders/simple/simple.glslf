@@ -1,4 +1,4 @@
-#version 420
+#version 330
 
 uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
@@ -10,7 +10,7 @@ uniform mat4 view_matrix;
 
 out vec4 color;
 
-in struct {
+in struct frag_t {
     vec4 position;
     vec4 normal;
 } frag;
