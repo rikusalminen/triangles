@@ -4,14 +4,20 @@ layout(triangles_adjacency) in;
 //layout(triangle_strip, max_vertices = 3) out;
 layout(line_strip, max_vertices = 6) out;
 
+uniform mat4 projection_matrix;
+
+in struct camera_space_ {
+    vec4 position;
+} camera_space[];
+
 void main()
 {
     for(int i = 0; i < 3; ++i)
     {
-        gl_Position = gl_in[(2*i+0)%6].gl_Position;
+        gl_Position = projection_matrix * camera_space[(2*i+0)%6].position;
         EmitVertex();
 
-        gl_Position = gl_in[(2*i+2)%6].gl_Position;
+        gl_Position = projection_matrix * camera_space[(2*i+2)%6].position;
         EmitVertex();
 
         EndPrimitive();
