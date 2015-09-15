@@ -81,12 +81,15 @@ struct gfx
     unsigned queries[num_queries];
 
     unsigned program;
+
+    unsigned shadow_program;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
     gfx->program = shader_load("shaders/simple/simple.glslv", "", "", "", "shaders/simple/simple.glslf");
+    gfx->shadow_program = shader_load("shaders/shadow_volume/shadow_volume.glslv", "", "", "shaders/shadow_volume/shadow_volume.glslg", "shaders/shadow_volume/shadow_volume.glslf");
 
     glGenQueries(num_queries, gfx->queries);
 
@@ -156,21 +159,21 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     glUseProgram(gfx->program);
 
-    int index;
     mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
+    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
+    mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
+    mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
+
+    int index;
     index = glGetUniformLocation(gfx->program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
 
-    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
     index = glGetUniformLocation(gfx->program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
-    //mat4 model_matrix = midentity();
-    mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
     index = glGetUniformLocation(gfx->program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
-    mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
     index = glGetUniformLocation(gfx->program, "normal_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&normal_matrix);
 
@@ -193,8 +196,19 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(0xffff);
 
-
     glBindVertexArray(gfx->vertex_array);
+    //glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+
+
+    glUseProgram(gfx->shadow_program);
+    index = glGetUniformLocation(gfx->shadow_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
     glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
 
     for(unsigned i = 0; i < num_queries; ++i)
@@ -272,7 +286,7 @@ int main(int argc, char *argv[])
         24, 8,
         4, 1,
         GLWT_API_OPENGL | GLWT_PROFILE_CORE | GLWT_PROFILE_DEBUG,
-        4, 2
+        3, 3
     };
 
     GLWTWindow *window = 0;
