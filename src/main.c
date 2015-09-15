@@ -177,28 +177,32 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->program, "normal_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&normal_matrix);
 
+    vec4 light_ambient = { 0.2, 0.2, 0.2, 1.0 };
+    vec4 light_diffuse = { 0.6, 0.6, 0.6, 0.0 };
+    vec4 light_specular = { 1.0, 1.0, 1.0, 1.0 };
+    vec4 light_position = { 2.0, 0.0, 0.0, 1.0 };
+    float light_shininess = 32.0;
+
     index = glGetUniformLocation(gfx->program, "light_ambient");
-    glUniform4f(index, 0.2, 0.2, 0.2, 1.0);
+    glUniform4fv(index, 1, (const float*)&light_ambient);
 
     index = glGetUniformLocation(gfx->program, "light_diffuse");
-    glUniform4f(index, 0.6, 0.6, 0.6, 0.0);
+    glUniform4fv(index, 1, (const float*)&light_diffuse);
 
     index = glGetUniformLocation(gfx->program, "light_specular");
-    glUniform4f(index, 1.0, 1.0, 1.0, 1.0);
+    glUniform4fv(index, 1, (const float*)&light_specular);
 
     index = glGetUniformLocation(gfx->program, "light_shininess");
-    glUniform1f(index, 32.0);
+    glUniform1f(index, light_shininess);
 
     index = glGetUniformLocation(gfx->program, "light_position");
-    glUniform4f(index, 2.0, 0.0, 0.0, 1.0);
-    //glUniform4f(index, 2*cos(t), 0.0, 2*sin(t), 1.0);
+    glUniform4fv(index, 1, (const float*)&light_position);
 
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(0xffff);
 
     glBindVertexArray(gfx->vertex_array);
-    //glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
-
+    glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
 
     glUseProgram(gfx->shadow_program);
     index = glGetUniformLocation(gfx->shadow_program, "projection_matrix");
