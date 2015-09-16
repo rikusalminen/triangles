@@ -160,7 +160,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUseProgram(gfx->program);
 
     mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
-    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
+    mat4 shadow_matrix = mat_perspective_fovy_inf_z(M_PI/4.0, (float)width/height, 0.1);
+    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -40.0, 1.0));
     mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
     mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
 
@@ -180,7 +181,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     vec4 light_ambient = { 0.2, 0.2, 0.2, 1.0 };
     vec4 light_diffuse = { 0.6, 0.6, 0.6, 0.0 };
     vec4 light_specular = { 1.0, 1.0, 1.0, 1.0 };
-    vec4 light_position = { 2.0, 0.0, 0.0, 1.0 };
+    vec4 light_position = { 0.0, 10.0, 0.0, 1.0 };
     float light_shininess = 32.0;
 
     index = glGetUniformLocation(gfx->program, "light_ambient");
@@ -213,7 +214,22 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     index = glGetUniformLocation(gfx->shadow_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "shadow_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&shadow_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "light_position");
+    glUniform4fv(index, 1, (const float*)&light_position);
+
+    glEnable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    glEnable(GL_DEPTH_CLAMP);
+    glDisable(GL_DEPTH_TEST);
     glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+    glDisable(GL_DEPTH_CLAMP);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);

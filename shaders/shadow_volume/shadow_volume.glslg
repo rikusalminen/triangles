@@ -1,10 +1,13 @@
 #version 330
 
 layout(triangles_adjacency) in;
-//layout(triangle_strip, max_vertices = 3) out;
-layout(line_strip, max_vertices = 6) out;
+layout(triangle_strip, max_vertices = 10) out;
 
 uniform mat4 projection_matrix;
+uniform mat4 shadow_matrix;
+uniform mat4 view_matrix;
+
+uniform vec4 light_position;
 
 in struct camera_space_ {
     vec4 position;
@@ -19,20 +22,80 @@ void main()
     vec3 c = camera_space[4].position.xyz;
     vec3 normal = normalize(cross(b-a, c-a));
 
-    for(int i = 0; i < 3; ++i)
-    {
+    vec4 plane = vec4(normal.xyz, dot(normal, a));
+    float dist = dot(view_matrix * light_position, plane);
+
+    vec3 mid = a + (b-a)/2 + (c-a)/2;
+    vec3 light_mid = normalize((view_matrix * light_position).xyz - mid);
+
+    if(dot(normal, light_mid) > 0) {
+        // front face
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_Position = projection_matrix * vec4(a, 1.0);
+        EmitVertex();
+
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_Position = projection_matrix * vec4(b, 1.0);
+        EmitVertex();
+
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_Position = projection_matrix * vec4(c, 1.0);
+        EmitVertex();
+
+        EndPrimitive();
+    } else {
+        // back face
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        vec3 light_a = normalize((view_matrix * light_position).xyz - a);
+        gl_Position = projection_matrix * vec4(a - 5*light_a, 1.0);
+        EmitVertex();
+
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        vec3 light_b = normalize((view_matrix * light_position).xyz - b);
+        gl_Position = projection_matrix * vec4(b - 5*light_b, 1.0);
+        EmitVertex();
+
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+        vec3 light_c = normalize((view_matrix * light_position).xyz - c);
+        gl_Position = projection_matrix * vec4(c - 5*light_c, 1.0);
+        EmitVertex();
+
+        EndPrimitive();
+    }
+
+    for(int i = 0; i < 3; ++i) {
         vec3 vert = camera_space[2*i].position.xyz;
         vec3 next = camera_space[(2*i+2)%6].position.xyz;
         vec3 adj = camera_space[2*i+1].position.xyz;
         vec3 normal_adj = normalize(cross(adj-vert, next-vert));
 
-        if(dot(normal, normal_adj) < 0.99) {
+        vec4 plane_adj = vec4(normal_adj.xyz, dot(normal_adj, vert));
+        float dist_adj = dot(view_matrix * light_position, plane_adj);
+
+        vec3 light_vert = (view_matrix * light_position).xyz - vert;
+        vec3 light_next = (view_matrix * light_position).xyz - next;
+        vec3 light_edge = (light_next + light_vert)/2.0;
+
+        if(dot(normal, light_edge) > 0 &&
+            dot(normal_adj, light_edge) < 0) {
+        //if(dist > 0 && dist_adj < 0) {
+            // Silhouette edge detected
+            color = vec4(1.0, 1.0, 1.0, 1.0);
+            gl_Position = projection_matrix * vec4(next, 1.0);
+            EmitVertex();
+
             color = vec4(1.0, 1.0, 1.0, 1.0);
             gl_Position = projection_matrix * vec4(vert, 1.0);
             EmitVertex();
 
             color = vec4(1.0, 1.0, 1.0, 1.0);
-            gl_Position = projection_matrix * vec4(vert + (next-vert), 1.0);
+            gl_Position = projection_matrix * vec4(next - normalize(light_next)*5, 0.0);
+            //gl_Position = shadow_matrix * vec4(-light_edge, 0.0);
+            EmitVertex();
+
+            color = vec4(1.0, 1.0, 1.0, 1.0);
+            //gl_Position = shadow_matrix * vec4(-light_edge, 0.0);
+            gl_Position = projection_matrix * vec4(vert - normalize(light_vert)*5, 0.0);
             EmitVertex();
 
             EndPrimitive();
