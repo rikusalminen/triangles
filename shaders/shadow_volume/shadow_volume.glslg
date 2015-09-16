@@ -10,16 +10,32 @@ in struct camera_space_ {
     vec4 position;
 } camera_space[];
 
+out vec4 color;
+
 void main()
 {
+    vec3 a = camera_space[0].position.xyz;
+    vec3 b = camera_space[2].position.xyz;
+    vec3 c = camera_space[4].position.xyz;
+    vec3 normal = normalize(cross(b-a, c-a));
+
     for(int i = 0; i < 3; ++i)
     {
-        gl_Position = projection_matrix * camera_space[(2*i+0)%6].position;
-        EmitVertex();
+        vec3 vert = camera_space[2*i].position.xyz;
+        vec3 next = camera_space[(2*i+2)%6].position.xyz;
+        vec3 adj = camera_space[2*i+1].position.xyz;
+        vec3 normal_adj = normalize(cross(adj-vert, next-vert));
 
-        gl_Position = projection_matrix * camera_space[(2*i+2)%6].position;
-        EmitVertex();
+        if(dot(normal, normal_adj) < 0.99) {
+            color = vec4(1.0, 1.0, 1.0, 1.0);
+            gl_Position = projection_matrix * vec4(vert, 1.0);
+            EmitVertex();
 
-        EndPrimitive();
+            color = vec4(1.0, 1.0, 1.0, 1.0);
+            gl_Position = projection_matrix * vec4(vert + (next-vert), 1.0);
+            EmitVertex();
+
+            EndPrimitive();
+        }
     }
 }
