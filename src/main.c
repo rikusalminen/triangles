@@ -128,6 +128,18 @@ static void parse_gl_version(const char *str, int *major, int *minor, int *gles)
     *gles = es;
 }
 
+#define GL_TEXTURE_SPARSE_ARB             0x91A6
+#define GL_VIRTUAL_PAGE_SIZE_INDEX_ARB    0x91A7
+#define GL_NUM_SPARSE_LEVELS_ARB          0x91AA
+#define GL_NUM_VIRTUAL_PAGE_SIZES_ARB     0x91A8
+#define GL_VIRTUAL_PAGE_SIZE_X_ARB        0x9195
+#define GL_VIRTUAL_PAGE_SIZE_Y_ARB        0x9196
+#define GL_VIRTUAL_PAGE_SIZE_Z_ARB        0x9197
+#define GL_MAX_SPARSE_TEXTURE_SIZE_ARB    0x9198
+#define GL_MAX_SPARSE_3D_TEXTURE_SIZE_ARB 0x9199
+#define GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS_ARB 0x919A
+#define GL_SPARSE_TEXTURE_FULL_ARRAY_CUBE_MIPMAPS_ARB 0x91A9
+
 static void main_loop(GLWTWindow *window, struct gfx *gfx)
 {
     init_gfx(window, gfx);
@@ -141,6 +153,51 @@ static void main_loop(GLWTWindow *window, struct gfx *gfx)
     parse_gl_version((const char*)glGetString(GL_VERSION), &major, &minor, &gles);
 
     printf("OpenGL%s %d.%d\n", gles ? " ES" : "", major, minor);
+
+    int max_texture_size;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+    printf("Max texture size: %d\n", max_texture_size);
+
+    int max_3d_texture_size;
+    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &max_3d_texture_size);
+    printf("Max 3d texture size: %d\n", max_3d_texture_size);
+
+    int max_array_texture_layers;
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max_array_texture_layers);
+    printf("Max array texture size: %d\n", max_array_texture_layers);
+
+    uint64_t ms = max_texture_size, ms3 = max_3d_texture_size;
+    uint64_t total_pixels = ms*ms*ms3;
+    printf("total_pixels: %lu  (%lu G)\n", total_pixels, total_pixels / (1024*1024*1024));
+
+    int num_compressed_texture_formats;
+    glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &num_compressed_texture_formats);
+    printf("num_compressed_texture_formats: %d\n", num_compressed_texture_formats);
+
+    int max_size[4] = { 0, 0, 0, 0 };
+    glGetIntegerv(GL_MAX_SPARSE_TEXTURE_SIZE_ARB, max_size);
+    printf("sparse texture_max_size: %dx%dx%dx%d\n",
+        max_size[0], max_size[1], max_size[2], max_size[3]);
+
+    int compressed_formats[num_compressed_texture_formats];
+    glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, compressed_formats);
+    for(int i = 0; i < num_compressed_texture_formats; ++i) {
+        int fmt = compressed_formats[i];
+        printf("%X\n", fmt);
+
+        int num_page_sizes = -1;
+        glGetInternalformativ(GL_TEXTURE_2D, fmt, GL_NUM_VIRTUAL_PAGE_SIZES_ARB, 1, &num_page_sizes);
+
+        int page_size_x[num_page_sizes], page_size_y[num_page_sizes], page_size_z[num_page_sizes];
+        glGetInternalformativ(GL_TEXTURE_2D, fmt, GL_VIRTUAL_PAGE_SIZE_X_ARB, num_page_sizes, page_size_x);
+        glGetInternalformativ(GL_TEXTURE_2D, fmt, GL_VIRTUAL_PAGE_SIZE_Y_ARB, num_page_sizes, page_size_y);
+        glGetInternalformativ(GL_TEXTURE_2D, fmt, GL_VIRTUAL_PAGE_SIZE_Z_ARB, num_page_sizes, page_size_z);
+
+        for(int j = 0; j < num_page_sizes; ++j) {
+            printf("%dx%dx%d\t", page_size_x[j], page_size_y[j], page_size_z[j]);
+        }
+        printf("\n");
+    }
 
     int frame = 0;
 
@@ -222,7 +279,7 @@ int main(int argc, char *argv[])
         24, 8,
         4, 1,
         GLWT_API_OPENGL | GLWT_PROFILE_CORE | GLWT_PROFILE_DEBUG,
-        4, 2
+        4, 4
     };
 
     struct gfx gfx;
