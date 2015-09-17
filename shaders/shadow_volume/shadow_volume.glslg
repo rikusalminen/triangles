@@ -13,8 +13,6 @@ in struct camera_space_ {
     vec4 position;
 } camera_space[];
 
-out vec4 color;
-
 void main()
 {
     vec4 light = view_matrix * light_position;
@@ -29,34 +27,25 @@ void main()
 
     if(dist > 0) {
         // front face
-        color = vec4(1.0, 1.0, 1.0, 1.0);
         gl_Position = projection_matrix * a;
         EmitVertex();
 
-        color = vec4(1.0, 1.0, 1.0, 1.0);
         gl_Position = projection_matrix * b;
         EmitVertex();
 
-        color = vec4(1.0, 1.0, 1.0, 1.0);
         gl_Position = projection_matrix * c;
         EmitVertex();
 
         EndPrimitive();
     } else {
         // back face
-        color = vec4(1.0, 1.0, 1.0, 1.0);
-        vec4 light_a = normalize(light - a);
-        gl_Position = projection_matrix * (a - 5*light_a);
+        gl_Position = shadow_matrix * (light.w*a - light);
         EmitVertex();
 
-        color = vec4(1.0, 1.0, 1.0, 1.0);
-        vec4 light_b = normalize(light - b);
-        gl_Position = projection_matrix * (b - 5*light_b);
+        gl_Position = shadow_matrix * (light.w*b - light);
         EmitVertex();
 
-        color = vec4(1.0, 1.0, 1.0, 1.0);
-        vec4 light_c = normalize(light - c);
-        gl_Position = projection_matrix * (c - 5*light_c);
+        gl_Position = shadow_matrix * (light.w*c - light);
         EmitVertex();
 
         EndPrimitive();
@@ -72,24 +61,17 @@ void main()
         float dist_adj = dot(light, plane_adj);
 
         if(dist > 0 && dist_adj < 0) {
-            vec4 light_next = normalize(light - next);
-            vec4 light_vert = normalize(light - vert);
-
             // Silhouette edge detected
-            color = vec4(1.0, 1.0, 1.0, 1.0);
             gl_Position = projection_matrix * next;
             EmitVertex();
 
-            color = vec4(1.0, 1.0, 1.0, 1.0);
             gl_Position = projection_matrix * vert;
             EmitVertex();
 
-            color = vec4(1.0, 1.0, 1.0, 1.0);
-            gl_Position = projection_matrix * (next - 5*light_next);
+            gl_Position = shadow_matrix * (light.w*next - light);
             EmitVertex();
 
-            color = vec4(1.0, 1.0, 1.0, 1.0);
-            gl_Position = projection_matrix * (vert - 5*light_vert);
+            gl_Position = shadow_matrix * (light.w*vert - light);
             EmitVertex();
 
             EndPrimitive();
