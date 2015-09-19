@@ -5,8 +5,9 @@ layout(location = 1) in vec4 normal;
 
 uniform mat4 projection_matrix;
 uniform mat4 view_matrix;
-uniform mat4 model_matrix;
-uniform mat4 normal_matrix;
+
+layout(location = 2) in mat4 model_matrix;
+layout(location = 6) in mat4 normal_matrix;
 
 out struct frag_t {
     vec4 position;

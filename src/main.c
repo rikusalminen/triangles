@@ -74,8 +74,11 @@ static const char* query_names[] = {
 
 struct gfx
 {
+    int num_cubes;
+
     unsigned vertex_buffer;
     unsigned index_buffer;
+    unsigned instance_buffer;
     unsigned vertex_array;
 
     unsigned queries[num_queries];
@@ -93,6 +96,8 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
     glGenQueries(num_queries, gfx->queries);
 
+    gfx->num_cubes = 256;
+
     glGenBuffers(1, &gfx->vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, 24 * 16 * sizeof(float), NULL, GL_STATIC_DRAW);
@@ -104,6 +109,10 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glGenBuffers(1, &gfx->index_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gfx->index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &gfx->instance_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->instance_buffer);
+    glBufferData(GL_ARRAY_BUFFER, gfx->num_cubes * 32 * sizeof(float), NULL, GL_STATIC_DRAW);
 
     glGenVertexArrays(1, &gfx->vertex_array);
     glBindVertexArray(gfx->vertex_array);
@@ -123,6 +132,23 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 16*sizeof(float), (void*)0 + 12*sizeof(float));
     glEnableVertexAttribArray(3);
 
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->instance_buffer);
+    for(int i = 0; i < 4; ++i) {
+        int index = 2;
+        glVertexAttribPointer(index + i, 4, GL_FLOAT, GL_FALSE, 32*sizeof(float),
+            (void*)0 + i*4*sizeof(float));
+        glEnableVertexAttribArray(index + i);
+        glVertexAttribDivisor(index+i, 1);
+    }
+
+    for(int i = 0; i < 4; ++i) {
+        int index = 6;
+        glVertexAttribPointer(index + i, 4, GL_FLOAT, GL_FALSE, 32*sizeof(float),
+            (void*)0 + (16 + 4*i)*sizeof(float));
+        glEnableVertexAttribArray(index + i);
+        glVertexAttribDivisor(index+i, 1);
+    }
+
     glBindVertexArray(0);
 }
 
@@ -133,6 +159,30 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
     glDeleteBuffers(1, &gfx->vertex_buffer);
 
     glDeleteVertexArrays(1, &gfx->vertex_array);
+}
+
+static void update_cubes(struct gfx *gfx, float t) {
+    (void)t;
+
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->instance_buffer);
+    void *ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+
+    int rows = 16;
+    for(int i = 0; i < gfx->num_cubes; ++i) {
+        int row = i % rows;
+        int col = i / rows;
+
+        mat4 model_matrix = mmmul(
+            mtranslate(vec(3.0*(row - rows/2), -10.0, 3.0*(col-rows/2), 1.0)),
+            midentity());
+            //mat_euler(vec(t/3, t, 0.0, 0.0)));
+        mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
+
+        mstream((mat4*)ptr + i*2, model_matrix);
+        mstream((mat4*)ptr + i*2+1, normal_matrix);
+
+    }
+    glUnmapBuffer(GL_ARRAY_BUFFER);
 }
 
 static void paint(struct gfx *gfx, int width, int height, int frame)
@@ -162,8 +212,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
     mat4 shadow_matrix = mat_perspective_fovy_inf_z(M_PI/4.0, (float)width/height, 0.1);
     mat4 view_matrix = mtranslate(vec(0.0, 0.0, -40.0, 1.0));
-    mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
-    mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
+
+    update_cubes(gfx, t);
 
     int index;
     index = glGetUniformLocation(gfx->program, "projection_matrix");
@@ -172,16 +222,17 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
-    index = glGetUniformLocation(gfx->program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
+    //index = glGetUniformLocation(gfx->program, "model_matrix");
+    //glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
-    index = glGetUniformLocation(gfx->program, "normal_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&normal_matrix);
+    //index = glGetUniformLocation(gfx->program, "normal_matrix");
+    //glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&normal_matrix);
 
     vec4 light_ambient = { 0.2, 0.2, 0.2, 1.0 };
     vec4 light_diffuse = { 0.6, 0.6, 0.6, 0.0 };
     vec4 light_specular = { 1.0, 1.0, 1.0, 1.0 };
-    vec4 light_position = { 0.0, 10.0, 0.0, 1.0 };
+    //vec4 light_position = { 0.0, 10.0, 0.0, 1.0 };
+    vec4 light_position = { 15.0*sin(t), 10.0, 15.0*cos(t), 1.0 };
     float light_shininess = 32.0;
 
     index = glGetUniformLocation(gfx->program, "light_ambient");
@@ -203,7 +254,10 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glPrimitiveRestartIndex(0xffff);
 
     glBindVertexArray(gfx->vertex_array);
-    glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+    glDrawElementsInstanced(GL_TRIANGLE_STRIP_ADJACENCY,
+        sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT,
+        (void*)0,
+        gfx->num_cubes);
 
     glUseProgram(gfx->shadow_program);
     index = glGetUniformLocation(gfx->shadow_program, "projection_matrix");
@@ -212,8 +266,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->shadow_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
-    index = glGetUniformLocation(gfx->shadow_program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
+    //index = glGetUniformLocation(gfx->shadow_program, "model_matrix");
+    //glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
     index = glGetUniformLocation(gfx->shadow_program, "shadow_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&shadow_matrix);
@@ -225,8 +279,11 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     glEnable(GL_DEPTH_CLAMP);
-    glDisable(GL_DEPTH_TEST);
-    glDrawElements(GL_TRIANGLE_STRIP_ADJACENCY, sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT, (void*)0);
+    //glDisable(GL_DEPTH_TEST);
+    glDrawElementsInstanced(GL_TRIANGLE_STRIP_ADJACENCY,
+        sizeof(cube_indices)/sizeof(*cube_indices), GL_UNSIGNED_SHORT,
+        (void*)0,
+        gfx->num_cubes);
     glDisable(GL_DEPTH_CLAMP);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
