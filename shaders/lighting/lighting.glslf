@@ -1,6 +1,5 @@
 #version 330
 
-uniform vec4 light_ambient;
 uniform vec4 light_diffuse;
 uniform vec4 light_specular;
 uniform float light_shininess;
@@ -21,7 +20,6 @@ void main()
     vec4 eye_vec = -normalize(frag.position);
 
     color =
-        light_ambient +
         light_diffuse * clamp(dot(frag.normal, light_vec), 0, 1) +
         light_specular * pow(clamp(dot(eye_vec, reflect(-light_vec, frag.normal)), 0, 1), light_shininess);
 }
