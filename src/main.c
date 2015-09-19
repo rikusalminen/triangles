@@ -209,7 +209,7 @@ static void gfx_animate(struct gfx *gfx, int width, int height, float t) {
     gfx->light_diffuse = (vec4){ 0.6, 0.6, 0.6, 0.0 };
     gfx->light_specular = (vec4){ 1.0, 1.0, 1.0, 1.0 };
     //gfx->light_position = (vec4){ 0.0, 10.0, 0.0, 1.0 };
-    gfx->light_position = (vec4){ 15.0*sin(t), 10.0, 15.0*cos(t), 1.0 };
+    gfx->light_position = (vec4){ 15.0*sin(t), 5.0, 15.0*cos(t), 1.0 };
     gfx->light_shininess = 32.0;
 }
 
@@ -244,6 +244,15 @@ static void ambient_draw(struct gfx *gfx) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
+    glDisable(GL_STENCIL_TEST);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+
+    glDepthMask(~0);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glDepthMask(~0);
+
     draw_cubes(gfx);
 }
 
@@ -263,6 +272,18 @@ static void shadow_draw(struct gfx *gfx) {
     index = glGetUniformLocation(gfx->shadow_program, "light_position");
     glUniform4fv(index, 1, (const float*)&gfx->light_position);
 
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    glDepthMask(0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glDisable(GL_CULL_FACE);
+
+    glDisable(GL_STENCIL_TEST);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
 
     draw_cubes(gfx);
 }
@@ -295,6 +316,14 @@ static void lighting_draw(struct gfx *gfx) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_EQUAL);
 
+    glDepthMask(0);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glEnable(GL_STENCIL_TEST);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+
+    glStencilFuncSeparate(GL_FRONT, GL_EQUAL, 0, 0xff);
 
     draw_cubes(gfx);
 
@@ -352,7 +381,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
 #if 1
     ambient_draw(gfx);
-    //shadow_draw(gfx);
+    shadow_draw(gfx);
     lighting_draw(gfx);
 #else
     simple_draw(gfx);
