@@ -81,6 +81,8 @@ struct gfx
     unsigned instance_buffer;
     unsigned vertex_array;
 
+    unsigned empty_vertex_array;
+
     unsigned queries[num_queries];
 
     unsigned simple_program;
@@ -88,6 +90,7 @@ struct gfx
     unsigned ambient_program;
     unsigned shadow_program;
     unsigned lighting_program;
+    unsigned stencil_program;
 
     mat4 projection_matrix;
     mat4 shadow_matrix;
@@ -108,6 +111,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->ambient_program = shader_load("shaders/ambient/ambient.glslv", "", "", "", "shaders/ambient/ambient.glslf");
     gfx->shadow_program = shader_load("shaders/shadow_volume/shadow_volume.glslv", "", "", "shaders/shadow_volume/shadow_volume.glslg", "shaders/shadow_volume/shadow_volume.glslf");
     gfx->lighting_program = shader_load("shaders/lighting/lighting.glslv", "", "", "", "shaders/lighting/lighting.glslf");
+    gfx->stencil_program = shader_load("shaders/stencil/stencil.glslv", "", "", "", "shaders/stencil/stencil.glslf");
 
     glGenQueries(num_queries, gfx->queries);
 
@@ -128,6 +132,8 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glGenBuffers(1, &gfx->instance_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, gfx->instance_buffer);
     glBufferData(GL_ARRAY_BUFFER, gfx->num_cubes * 32 * sizeof(float), NULL, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &gfx->empty_vertex_array);
 
     glGenVertexArrays(1, &gfx->vertex_array);
     glBindVertexArray(gfx->vertex_array);
@@ -281,11 +287,34 @@ static void shadow_draw(struct gfx *gfx) {
 
     glDisable(GL_CULL_FACE);
 
-    glDisable(GL_STENCIL_TEST);
-    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
-    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
+    glEnable(GL_STENCIL_TEST);
+    glStencilFuncSeparate(GL_FRONT, GL_ALWAYS, 0, ~0);
+    glStencilFuncSeparate(GL_BACK, GL_ALWAYS, 0, ~0);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
+
+    //glStencilOpSeparate(GL_BACK, GL_INCR, GL_INCR, GL_INCR);
+    //glStencilOpSeparate(GL_FRONT, GL_INCR, GL_INCR, GL_INCR);
 
     draw_cubes(gfx);
+}
+
+static void stencil_draw(struct gfx *gfx) {
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(0);
+
+    glUseProgram(gfx->stencil_program);
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glStencilFuncSeparate(GL_BACK, GL_EQUAL, 0, 0xff);
+    glStencilFuncSeparate(GL_FRONT, GL_EQUAL, 0, 0xff);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+
+    glBindVertexArray(gfx->empty_vertex_array);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 static void lighting_draw(struct gfx *gfx) {
@@ -314,7 +343,11 @@ static void lighting_draw(struct gfx *gfx) {
     glBlendFunc(GL_ONE, GL_ONE);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_EQUAL);
+    glDepthFunc(GL_LEQUAL);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     glDepthMask(0);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -324,6 +357,7 @@ static void lighting_draw(struct gfx *gfx) {
     glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
 
     glStencilFuncSeparate(GL_FRONT, GL_EQUAL, 0, 0xff);
+    glStencilFuncSeparate(GL_BACK, GL_EQUAL, 0, 0xff);
 
     draw_cubes(gfx);
 
@@ -379,9 +413,14 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     gfx_animate(gfx, width, height, t);
     update_cubes(gfx, t);
 
-#if 1
+    (void)ambient_draw;
+    (void)shadow_draw;
+    (void)stencil_draw;
+    (void)lighting_draw;
+#if 0
     ambient_draw(gfx);
     shadow_draw(gfx);
+    stencil_draw(gfx);
     lighting_draw(gfx);
 #else
     simple_draw(gfx);
