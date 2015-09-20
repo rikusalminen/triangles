@@ -193,8 +193,10 @@ static void update_cubes(struct gfx *gfx, float t) {
         int row = i % rows;
         int col = i / rows;
 
+        float y = 5*sin(5 * row/(float)rows) - 10;
+
         mat4 model_matrix = mmmul(
-            mtranslate(vec(3.0*(row - rows/2), -10.0, 3.0*(col-rows/2), 1.0)),
+            mtranslate(vec(3.0*(row - rows/2), y, 3.0*(col-rows/2), 1.0)),
             midentity());
             //mat_euler(vec(t/3, t, 0.0, 0.0)));
         mat4 normal_matrix = minverse_transpose(mat3_to_mat4(model_matrix));
@@ -283,9 +285,10 @@ static void shadow_draw(struct gfx *gfx) {
 
     glDepthMask(0);
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_LESS);
 
     glDisable(GL_CULL_FACE);
+
 
     glEnable(GL_STENCIL_TEST);
     glStencilFuncSeparate(GL_FRONT, GL_ALWAYS, 0, ~0);
@@ -293,14 +296,10 @@ static void shadow_draw(struct gfx *gfx) {
     glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
     glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
 
-    //glStencilOpSeparate(GL_BACK, GL_INCR, GL_INCR, GL_INCR);
-    //glStencilOpSeparate(GL_FRONT, GL_INCR, GL_INCR, GL_INCR);
-
     draw_cubes(gfx);
 }
 
 static void stencil_draw(struct gfx *gfx) {
-
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(0);
 
@@ -308,8 +307,8 @@ static void stencil_draw(struct gfx *gfx) {
 
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
-    glStencilFuncSeparate(GL_BACK, GL_EQUAL, 0, 0xff);
-    glStencilFuncSeparate(GL_FRONT, GL_EQUAL, 0, 0xff);
+    glStencilFuncSeparate(GL_BACK, GL_NOTEQUAL, 0, 0xff);
+    glStencilFuncSeparate(GL_FRONT, GL_NOTEQUAL, 0, 0xff);
     glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
 
@@ -362,6 +361,42 @@ static void lighting_draw(struct gfx *gfx) {
     draw_cubes(gfx);
 
     glDisable(GL_BLEND);
+}
+
+static void volume_draw(struct gfx *gfx) {
+    glUseProgram(gfx->shadow_program);
+
+    int index;
+    index = glGetUniformLocation(gfx->shadow_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&gfx->projection_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&gfx->view_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "shadow_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&gfx->shadow_matrix);
+
+    index = glGetUniformLocation(gfx->shadow_program, "light_position");
+    glUniform4fv(index, 1, (const float*)&gfx->light_position);
+
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glDepthMask(0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    glDisable(GL_STENCIL_TEST);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    draw_cubes(gfx);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 void simple_draw(struct gfx *gfx) {
@@ -417,10 +452,12 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     (void)shadow_draw;
     (void)stencil_draw;
     (void)lighting_draw;
-#if 0
+    (void)volume_draw;
+#if 1
     ambient_draw(gfx);
     shadow_draw(gfx);
-    stencil_draw(gfx);
+    //stencil_draw(gfx);
+    //volume_draw(gfx);
     lighting_draw(gfx);
 #else
     simple_draw(gfx);
