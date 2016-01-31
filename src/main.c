@@ -34,6 +34,9 @@ struct gfx
 
     unsigned hsv_program;
 
+    unsigned uvsphere_program;
+    int rings, slices;
+
     float yaw, pitch;
     int mouse_x, mouse_y;
 
@@ -49,6 +52,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->axes_program = shader_load("shaders/axes/axes.glslv", "", "",  "", "shaders/axes/axes.glslf");
     gfx->conic_program = shader_load("shaders/conic/conic.glslv", "", "",  "", "shaders/conic/conic.glslf");
     gfx->hsv_program = shader_load("shaders/hsv/hsv.glslv", "", "",  "", "shaders/hsv/hsv.glslf");
+    gfx->uvsphere_program = shader_load("shaders/uvsphere/uvsphere.glslv", "", "",  "", "shaders/uvsphere/uvsphere.glslf");
 
     glGenVertexArrays(1, &gfx->axes_vertex_array);
 
@@ -180,6 +184,26 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUseProgram(gfx->hsv_program);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
+    // uvsphere
+    int rings = gfx->rings, slices = gfx->slices;
+    int uvsphere_verts = (4 + 2*rings + 2)*(3+slices) - 2;
+
+    glUseProgram(gfx->uvsphere_program);
+    index = glGetUniformLocation(gfx->uvsphere_program, "num_rings");
+    glUniform1i(index, rings);
+    index = glGetUniformLocation(gfx->uvsphere_program, "num_slices");
+    glUniform1i(index, slices);
+
+    index = glGetUniformLocation(gfx->uvsphere_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
+    index = glGetUniformLocation(gfx->uvsphere_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
+
+    //glDisable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
 }
@@ -302,6 +326,16 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
         case 'G':
             gfx->arg = fmaxf(-M_PI, fminf(M_PI,
                 gfx->arg + (M_PI/16.0)*(event->key.mod & GLWT_MOD_SHIFT ? -1.0 : 1.0)));
+            break;
+        case 'R':
+            gfx->rings = event->key.mod & GLWT_MOD_SHIFT ?
+                (gfx->rings > 0 ? gfx->rings-1 : 0) :
+                (gfx->rings+1);
+            break;
+        case 'S':
+            gfx->slices = event->key.mod & GLWT_MOD_SHIFT ?
+                (gfx->slices > 0 ? gfx->slices-1 : 0) :
+                (gfx->slices+1);
             break;
         default:
             break;
