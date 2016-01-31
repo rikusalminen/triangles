@@ -8,6 +8,9 @@ uniform mat4 view_matrix;
 uniform int num_rings;
 uniform int num_slices;
 
+out vec3 normal;
+out vec2 texcoord;
+
 void main() {
     int verts_per_slice = 4 + 2*num_rings + 2; // 2 extra vertices for degenerate strip
 
@@ -26,13 +29,15 @@ void main() {
     int row = (idx+1) >> 1;
 
     float u = (1.0/(3+num_slices)) *
-        (slice + ((idx == 0 || idx == (3+2*num_rings)) ? 0.5 : float((idx & 1) /* ^1 */ )));
+        (slice + ((idx == 0 || idx == (3+2*num_rings)) ? 0.5 : float((idx & 1) ^1 )));
     float v = row / float(rows-1);
 
     float lon = u * 2.0 * pi;
-    float lat = (v - 0.5) * pi;
+    float lat = -(v - 0.5) * pi;
 
     vec3 xyz = vec3(cos(lon) * cos(lat), sin(lon) * cos(lat), sin(lat));
 
+    normal = xyz;
+    texcoord = vec2(u, v);
     gl_Position = projection_matrix * view_matrix * vec4(xyz, 1.0);
 }

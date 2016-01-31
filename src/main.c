@@ -200,7 +200,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
 
     //glDisable(GL_CULL_FACE);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
