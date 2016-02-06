@@ -139,7 +139,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glDisable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glUseProgram(gfx->octa_program);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, gfx->octa_triangles + 3);
+    glDrawArrays(GL_TRIANGLES, 0, gfx->octa_triangles * 3);
 
 
     for(unsigned i = 0; i < num_queries; ++i)
