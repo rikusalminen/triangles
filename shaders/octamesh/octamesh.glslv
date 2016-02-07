@@ -20,14 +20,15 @@
     first vertex of every triangle is right angle (at outside edge)
 */
 ivec2 quad_octant(int tri, int vtx) {
-    ivec2 uv = ivec2(0, 0);
-    uv[(tri & 2) >> 1 ^ 0] =
-        (1 ^ (vtx >> 1) ^ (tri & (vtx >> 1 | vtx) & 1)) |
-        (((tri>>2 ^ tri) & (~tri ^ vtx) & (vtx >> 1 | vtx) & 1) << 1);
-    uv[(tri & 2) >> 1 ^ 1] =
-        ((vtx >> 1 | vtx) & (tri ^ vtx) & 1) |
-        (((tri >> 1 ^ tri)&2) & ((~vtx & 1) ^ (tri & (vtx >> 1 | vtx) & 1))<<1);
-    return uv;
+    const int magic = 0x6a6645; // 24 bits of vertex data
+
+    int u = (magic >> (2*((tri%4)*3 + vtx))) & 3;
+    u ^= (tri>>1 & ~u<<1) & 2;
+
+    int v = (magic >> (2*(((tri+6)%4)*3 + vtx))) & 3;
+    v ^= (~(tri>>1 ^ tri) & ~v<<1) & 2;
+
+    return ivec2(u, v);
 }
 
 
@@ -50,12 +51,15 @@ ivec2 quad_octant(int tri, int vtx) {
     first vertex of every triangle is right angle (in the middle)
 */
 ivec2 quad_quadrant(int tri, int vtx) {
-    return ivec2(
-        ((1^(vtx>>1 | vtx))&1) |
-        ((tri<<1 ^ tri) & vtx<<1 & 2) | (vtx & ~tri & 2),
-        ((1^(vtx>>1 | vtx))&1) |
-        (tri & vtx<<1 & 2) | ((tri<<1 ^ tri) & vtx & 2)
-    );
+    const int magic = 0xa61; // 12 bits of vertex data
+
+    int u = (magic >> (2*((tri%2)*3 + vtx))) & 3;
+    u ^= (tri & ~u<<1) & 2;
+
+    int v = (magic >> (2*(((tri+3)%2)*3 + vtx))) & 3;
+    v ^= (~(tri<<1 ^ tri) & ~v<<1) & 2;
+
+    return ivec2(u, v);
 }
 
 void main()
