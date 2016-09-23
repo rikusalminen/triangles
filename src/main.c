@@ -27,13 +27,12 @@ struct gfx
 {
     unsigned queries[num_queries];
 
-    unsigned ico_program;
-    unsigned ico_vertex_array;
+    unsigned vertex_buffer_size;
+    unsigned vertex_buffer;
+    unsigned identity_vertex_array;
 
-    unsigned wire_program;
+    unsigned identity_program;
 
-    unsigned octa_program;
-    int octa_triangles;
 
     int lod_level;
     int outer_level, inner_level;
@@ -42,27 +41,54 @@ struct gfx
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
-    gfx->ico_program = shader_load("shaders/cubesphere/cubesphere.glslv", "shaders/cubesphere/cubesphere.glsltc", "shaders/cubesphere/cubesphere.glslte",  "shaders/cubesphere/cubesphere.glslg", "shaders/cubesphere/cubesphere.glslf");
-    gfx->wire_program = shader_load("shaders/wirecube/wirecube.glslv", "", "",  "", "shaders/wirecube/wirecube.glslf");
-    gfx->octa_program = shader_load("shaders/octamesh/octamesh.glslv", "", "",  "", "shaders/octamesh/octamesh.glslf");
-
-    glGenVertexArrays(1, &gfx->ico_vertex_array);
 
     glGenQueries(num_queries, gfx->queries);
+
+    gfx->identity_program = shader_load("shaders/identity/identity.glslv", "", "",  "", "shaders/identity/identity.glslf");
+    glGenVertexArrays(1, &gfx->identity_vertex_array);
+
+    gfx->vertex_buffer_size = 1024*1024;
+    glGenBuffers(1, &gfx->vertex_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, gfx->vertex_buffer_size, NULL, GL_STATIC_DRAW);
+
+    glBindVertexArray(gfx->identity_vertex_array);
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
+    glEnableVertexAttribArray(0);
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
 {
     (void)window;
 
-    glDeleteVertexArrays(1, &gfx->ico_vertex_array);
-    glDeleteProgram(gfx->ico_program);
+    glDeleteVertexArrays(1, &gfx->identity_vertex_array);
+    glDeleteProgram(gfx->identity_program);
+}
+
+void fill_vertex_buffer(struct gfx *gfx) {
+    glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
+    void *mapped_ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+
+    float *ptr = (float*)mapped_ptr;
+    ptr[0] = 0.0;
+    ptr[1] = 0.0;
+
+    ptr[2] = 1.0;
+    ptr[3] = 0.0;
+
+    ptr[4] = 0.0;
+    ptr[5] = 1.0;
+
+    glUnmapBuffer(GL_ARRAY_BUFFER);
 }
 
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
     float t = frame / 60.0;
     (void)t;
+
+    fill_vertex_buffer(gfx);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
@@ -75,72 +101,17 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glViewport(0, 0, width, height);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_BACK);
+    //glFrontFace(GL_CCW);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    //glEnable(GL_DEPTH_TEST);
+    //glDepthFunc(GL_LEQUAL);
 
-    glUseProgram(gfx->ico_program);
-    glBindVertexArray(gfx->ico_vertex_array);
+    glUseProgram(gfx->identity_program);
+    glBindVertexArray(gfx->identity_vertex_array);
 
-    //int index;
-    //mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
-
-    /*
-    mat4 view_matrix = mtranslate(vec(0.0, 0.0, -5.0, 1.0));
-    index = glGetUniformLocation(gfx->program, "view_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
-    */
-
-
-    //mat4 model_matrix = midentity();
-    //mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t/5, 0, 0)));
-    //mat4 model_matrix = mat_euler(vec(t/3, t, 0.0, 0.0));
-
-    // CUBE SPHERE
-#if 0
-    index = glGetUniformLocation(gfx->ico_program, "projection_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
-    index = glGetUniformLocation(gfx->ico_program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
-
-    index = glGetUniformLocation(gfx->ico_program, "lod_level");
-    glUniform1i(index, gfx->lod_level);
-
-    index = glGetUniformLocation(gfx->ico_program, "outer_level");
-    glUniform1i(index, gfx->outer_level);
-
-    index = glGetUniformLocation(gfx->ico_program, "inner_level");
-    glUniform1i(index, gfx->inner_level);
-
-    glEnable(GL_PRIMITIVE_RESTART);
-    glPrimitiveRestartIndex(0xffff);
-
-    glPointSize(5.0);
-    glLineWidth(1.0);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-    glPatchParameteri(GL_PATCH_VERTICES, 3);
-    glDrawArrays(GL_PATCHES, 0, 18);
-
-    // WIRE CUBE
-    glUseProgram(gfx->wire_program);
-    index = glGetUniformLocation(gfx->wire_program, "projection_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
-    index = glGetUniformLocation(gfx->wire_program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
-
-    glDrawArrays(GL_LINES, 0, 24);
-#endif
-    // OCTAMESH
-    glEnable(GL_CULL_FACE);
-    glDisable(GL_DEPTH_TEST);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glUseProgram(gfx->octa_program);
-    glDrawArrays(GL_TRIANGLES, 0, gfx->octa_triangles * 3);
-
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -214,20 +185,6 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             case GLWT_KEY_PLUS:
             case GLWT_KEY_KEYPAD_PLUS:
                 gfx->lod_level++;
-                break;
-            case GLWT_KEY_MINUS:
-            case GLWT_KEY_KEYPAD_MINUS:
-                if(gfx->lod_level > 0) gfx->lod_level--;
-                break;
-            case GLWT_KEY_O:
-                gfx->outer_level += (event->key.mod & GLWT_MOD_SHIFT) ? -1 : 1;
-                break;
-            case GLWT_KEY_I:
-                gfx->inner_level += (event->key.mod & GLWT_MOD_SHIFT) ? -1 : 1;
-                break;
-            case GLWT_KEY_T:
-                gfx->octa_triangles += (event->key.mod & GLWT_MOD_SHIFT) ?
-                    (gfx->octa_triangles > 0 ? -1 : 0) : 1;
                 break;
             default:
                 break;
