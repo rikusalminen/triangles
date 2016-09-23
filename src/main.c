@@ -36,6 +36,11 @@ struct gfx
 
     int lod_level;
     int outer_level, inner_level;
+
+    float *vertex_ptr;
+    unsigned vertex_count;
+
+    float mouse_x, mouse_y;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -47,7 +52,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->identity_program = shader_load("shaders/identity/identity.glslv", "", "",  "", "shaders/identity/identity.glslf");
     glGenVertexArrays(1, &gfx->identity_vertex_array);
 
-    gfx->vertex_buffer_size = 1024*1024;
+    gfx->vertex_buffer_size = 1024*1024*16;
     glGenBuffers(1, &gfx->vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, gfx->vertex_buffer_size, NULL, GL_STATIC_DRAW);
@@ -66,19 +71,41 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
     glDeleteProgram(gfx->identity_program);
 }
 
+void emit_vertex(struct gfx *gfx, float x, float y) {
+    *gfx->vertex_ptr++ = x;
+    *gfx->vertex_ptr++ = y;
+    gfx->vertex_count += 1;
+}
+
+void octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
+    float size = 1.0 / (1 << depth);
+
+    if(depth == gfx->lod_level) {
+        if(gfx->mouse_x > x-size && gfx->mouse_y > y-size &&
+            gfx->mouse_x < x+size && gfx->mouse_y < y+size)
+            return;
+
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x-size, y+size);
+
+        return;
+    }
+
+    for(int i = 0; i < 4; ++i) {
+        float dx = (i&1) ? -1 : 1, dy = (i>>1) ? -1 : 1;
+        octamesh_recursive(gfx, depth + 1, x+dx*size/2.0, y+dy*size/2.0);
+    }
+}
+
 void fill_vertex_buffer(struct gfx *gfx) {
     glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
     void *mapped_ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-    float *ptr = (float*)mapped_ptr;
-    ptr[0] = 0.0;
-    ptr[1] = 0.0;
+    gfx->vertex_ptr = (float*)mapped_ptr;
+    gfx->vertex_count = 0;
 
-    ptr[2] = 1.0;
-    ptr[3] = 0.0;
-
-    ptr[4] = 0.0;
-    ptr[5] = 1.0;
+    octamesh_recursive(gfx, 0, 0.0, 0.0);
 
     glUnmapBuffer(GL_ARRAY_BUFFER);
 }
@@ -108,10 +135,13 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     //glEnable(GL_DEPTH_TEST);
     //glDepthFunc(GL_LEQUAL);
 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(2.0);
+
     glUseProgram(gfx->identity_program);
     glBindVertexArray(gfx->identity_vertex_array);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLES, 0, gfx->vertex_count);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -186,9 +216,27 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             case GLWT_KEY_KEYPAD_PLUS:
                 gfx->lod_level++;
                 break;
+            case GLWT_KEY_MINUS:
+            case GLWT_KEY_KEYPAD_MINUS:
+                if(gfx->lod_level > 0 ) gfx->lod_level--;
+                break;
             default:
                 break;
         }
+    }
+
+    if(event->type == GLWT_WINDOW_MOUSE_MOTION) {
+        int sx = event->motion.x;
+        int sy = event->motion.y;
+
+        int width, height;
+        glwtWindowGetSize(window, &width, &height);
+
+        float x = -1.0 + 2.0 * (sx / (float)width);
+        float y = 1.0 - 2.0 * (sy / (float)height);
+
+        gfx->mouse_x = x;
+        gfx->mouse_y = y;
     }
 }
 
