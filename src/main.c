@@ -41,6 +41,7 @@ struct gfx
     unsigned vertex_count;
 
     float mouse_x, mouse_y;
+    unsigned triangle_count;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -77,6 +78,29 @@ void emit_vertex(struct gfx *gfx, float x, float y) {
     gfx->vertex_count += 1;
 }
 
+void emit_quad(struct gfx *gfx, float x, float y, float size) {
+    // north
+    emit_vertex(gfx, x, y);
+    emit_vertex(gfx, x+size, y+size);
+    emit_vertex(gfx, x-size, y+size);
+
+    // east
+    emit_vertex(gfx, x, y);
+    emit_vertex(gfx, x+size, y-size);
+    emit_vertex(gfx, x+size, y+size);
+
+    // south
+    emit_vertex(gfx, x, y);
+    emit_vertex(gfx, x-size, y-size);
+    emit_vertex(gfx, x+size, y-size);
+
+    // west
+    emit_vertex(gfx, x, y);
+    emit_vertex(gfx, x-size, y+size);
+    emit_vertex(gfx, x-size, y-size);
+
+}
+
 void octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
     float size = 1.0 / (1 << depth);
 
@@ -85,10 +109,7 @@ void octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
             gfx->mouse_x < x+size && gfx->mouse_y < y+size)
             return;
 
-        emit_vertex(gfx, x-size, y-size);
-        emit_vertex(gfx, x+size, y-size);
-        emit_vertex(gfx, x-size, y+size);
-
+        emit_quad(gfx, x, y, size);
         return;
     }
 
@@ -128,9 +149,9 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glViewport(0, 0, width, height);
-    //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_BACK);
-    //glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     //glEnable(GL_DEPTH_TEST);
     //glDepthFunc(GL_LEQUAL);
@@ -141,7 +162,9 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUseProgram(gfx->identity_program);
     glBindVertexArray(gfx->identity_vertex_array);
 
-    glDrawArrays(GL_TRIANGLES, 0, gfx->vertex_count);
+    unsigned vertex_count = (gfx->vertex_count < 3*gfx->triangle_count) ?
+        gfx->vertex_count : 3*gfx->triangle_count;
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
@@ -219,6 +242,10 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             case GLWT_KEY_MINUS:
             case GLWT_KEY_KEYPAD_MINUS:
                 if(gfx->lod_level > 0 ) gfx->lod_level--;
+                break;
+            case GLWT_KEY_T:
+                gfx->triangle_count += (event->key.mod & GLWT_MOD_SHIFT) ?
+                    (gfx->triangle_count > 0 ? -1 : 0) : 1;
                 break;
             default:
                 break;
