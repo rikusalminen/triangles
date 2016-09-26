@@ -105,17 +105,21 @@ void octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
     float size = 1.0 / (1 << depth);
 
     if(depth == gfx->lod_level) {
-        if(gfx->mouse_x > x-size && gfx->mouse_y > y-size &&
-            gfx->mouse_x < x+size && gfx->mouse_y < y+size)
-            return;
-
         emit_quad(gfx, x, y, size);
         return;
     }
 
+    float origin[2] = { gfx->mouse_x, gfx->mouse_y };
+    float mid[2] = { x, y };
+    int major_axis = fabsf(origin[0] - mid[0]) < fabsf(origin[1] - mid[1]) ? 0 : 1;
+
     for(int i = 0; i < 4; ++i) {
-        float dx = (i&1) ? -1 : 1, dy = (i>>1) ? -1 : 1;
-        octamesh_recursive(gfx, depth + 1, x+dx*size/2.0, y+dy*size/2.0);
+        float new_mid[2] = { 0, 0 };
+        new_mid[major_axis] = mid[major_axis] + (size/2.0) *
+            (((origin[major_axis] < mid[major_axis]) ^ (i & 1)) ?  -1.0 : 1.0);
+        new_mid[!major_axis] = mid[!major_axis] + (size/2.0) *
+            (((origin[!major_axis] < mid[!major_axis]) ^ (i >> 1)) ? -1.0 : 1.0);
+        octamesh_recursive(gfx, depth + 1, new_mid[0], new_mid[1]);
     }
 }
 
