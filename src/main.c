@@ -42,6 +42,7 @@ struct gfx
 
     float mouse_x, mouse_y;
     unsigned triangle_count;
+    int dirty_vertex_buffer;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -62,6 +63,9 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glBindBuffer(GL_ARRAY_BUFFER, gfx->vertex_buffer);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
     glEnableVertexAttribArray(0);
+
+    gfx->triangle_count = 32;
+    gfx->dirty_vertex_buffer = 1;
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -101,26 +105,76 @@ void emit_quad(struct gfx *gfx, float x, float y, float size) {
 
 }
 
-void octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
+/*
+void emit_patched_quad(struct gfx *gfx, float x, float y, float size, int num_children, int child_mask) {
+    (void)num_children; (void)child_mask;
+    emit_quad(gfx, x, y, size);
+}
+*/
+
+int octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
     float size = 1.0 / (1 << depth);
 
-    if(depth == gfx->lod_level) {
-        emit_quad(gfx, x, y, size);
-        return;
+    float org_x = (gfx->lod_level == 0) ?
+        (gfx->mouse_x < 0.0 ? -1.0 : 1.0) :
+        rintf(gfx->mouse_x * (1 << (gfx->lod_level - 1)));
+    float org_y = (gfx->lod_level == 0) ?
+        (gfx->mouse_y < 0.0 ? -1.0 : 1.0) :
+        rintf(gfx->mouse_y * (1 << (gfx->lod_level - 1)));
+
+    float sz = gfx->lod_level == 0 ? 1 : (1 << (gfx->lod_level - 1));
+
+    if(depth == 0)
+        emit_quad(gfx, org_x/sz, org_y/sz, 0.025);
+
+    float rx = rintf(x * (1 << gfx->lod_level)) / 2.0;
+    float ry = rintf(y * (1 << gfx->lod_level)) / 2.0;
+    float dist = fabsf(org_x - rx) + fabsf(org_y - ry);
+
+    float threshold = gfx->lod_level == 0 ? 2.0 : -1.0+2.0*depth;
+    float cull_distance = gfx->lod_level == 0 ? 4.0 : 2 << (gfx->lod_level - depth);
+
+    printf("depth: %d  lod: %d  r: (%f, %f)  org: (%f, %f)  dist: %f  threshold: %f  cull: %f\n", depth, gfx->lod_level, rx, ry, org_x, org_y, dist, threshold, cull_distance);
+
+    if(depth > gfx->lod_level) {
+        printf("terminator!\n");
+        return 0;
     }
+
+    if(dist >= cull_distance) {
+        printf("distance cull!\n");
+        return 0;
+    }
+
+    if(dist <= threshold) {
+        printf("leaf node!\n");
+        emit_quad(gfx, x, y, size);
+        return 1;
+    }
+
+    printf("recurse!\n");
 
     float origin[2] = { gfx->mouse_x, gfx->mouse_y };
     float mid[2] = { x, y };
     int major_axis = fabsf(origin[0] - mid[0]) < fabsf(origin[1] - mid[1]) ? 0 : 1;
 
+    int child_mask = 0;
+    int num_children = 0;
     for(int i = 0; i < 4; ++i) {
         float new_mid[2] = { 0, 0 };
         new_mid[major_axis] = mid[major_axis] + (size/2.0) *
             (((origin[major_axis] < mid[major_axis]) ^ (i & 1)) ?  -1.0 : 1.0);
         new_mid[!major_axis] = mid[!major_axis] + (size/2.0) *
             (((origin[!major_axis] < mid[!major_axis]) ^ (i >> 1)) ? -1.0 : 1.0);
-        octamesh_recursive(gfx, depth + 1, new_mid[0], new_mid[1]);
+        if(octamesh_recursive(gfx, depth + 1, new_mid[0], new_mid[1])) {
+            child_mask |= (1 << i);
+            num_children += 1;
+        }
     }
+
+    //emit_patched_quad(gfx, x, y, size, num_children, child_mask);
+
+    return 1;
 }
 
 void fill_vertex_buffer(struct gfx *gfx) {
@@ -140,7 +194,10 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     float t = frame / 60.0;
     (void)t;
 
-    fill_vertex_buffer(gfx);
+    if(gfx->dirty_vertex_buffer) {
+        fill_vertex_buffer(gfx);
+        gfx->dirty_vertex_buffer = 0;
+    }
 
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
@@ -242,14 +299,17 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
             case GLWT_KEY_PLUS:
             case GLWT_KEY_KEYPAD_PLUS:
                 gfx->lod_level++;
+                gfx->dirty_vertex_buffer = 1;
                 break;
             case GLWT_KEY_MINUS:
             case GLWT_KEY_KEYPAD_MINUS:
                 if(gfx->lod_level > 0 ) gfx->lod_level--;
+                gfx->dirty_vertex_buffer = 1;
                 break;
             case GLWT_KEY_T:
                 gfx->triangle_count += (event->key.mod & GLWT_MOD_SHIFT) ?
                     (gfx->triangle_count > 0 ? -1 : 0) : 1;
+                gfx->dirty_vertex_buffer = 1;
                 break;
             default:
                 break;
@@ -265,6 +325,9 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
 
         float x = -1.0 + 2.0 * (sx / (float)width);
         float y = 1.0 - 2.0 * (sy / (float)height);
+
+        if(gfx->mouse_x != x || gfx->mouse_y != y)
+            gfx->dirty_vertex_buffer = 1;
 
         gfx->mouse_x = x;
         gfx->mouse_y = y;
