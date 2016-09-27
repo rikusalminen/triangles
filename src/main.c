@@ -112,64 +112,83 @@ void emit_patched_quad(struct gfx *gfx, float x, float y, float size, int num_ch
 }
 */
 
-int octamesh_recursive(struct gfx *gfx, int depth, float x, float y) {
-    float size = 1.0 / (1 << depth);
+static inline int min(int x, int y) { return x < y ? x : y; }
+static inline int max(int x, int y) { return x > y ? x : y; }
 
-    float org_x = (gfx->lod_level == 0) ?
-        (gfx->mouse_x < 0.0 ? -1.0 : 1.0) :
-        rintf(gfx->mouse_x * (1 << (gfx->lod_level - 1)));
-    float org_y = (gfx->lod_level == 0) ?
-        (gfx->mouse_y < 0.0 ? -1.0 : 1.0) :
-        rintf(gfx->mouse_y * (1 << (gfx->lod_level - 1)));
+int octamesh_recursive(struct gfx *gfx, int depth, int x, int y) {
+    int org_x = (gfx->lod_level == 0) ?
+        (gfx->mouse_x < 0.0 ? 0 : 1) :
+        (int)rintf((gfx->mouse_x+1.0)/2.0 * (1 << gfx->lod_level));
+    int org_y = (gfx->lod_level == 0) ?
+        (gfx->mouse_y < 0.0 ? 0 : 1) :
+        (int)rintf((gfx->mouse_y+1.0)/2.0 * (1 << gfx->lod_level));
 
-    float sz = gfx->lod_level == 0 ? 1 : (1 << (gfx->lod_level - 1));
 
-    if(depth == 0)
-        emit_quad(gfx, org_x/sz, org_y/sz, 0.025);
+#if 0
+    // clamp org_x, org_y to inside this quad
+    int fac = 1 << (gfx->lod_level - depth);
+    org_x = max(fac*x, min(org_x, fac*(x+1)));
+    org_y = max(fac*y, min(org_y, fac*(y+1)));
+#endif
 
-    float rx = rintf(x * (1 << gfx->lod_level)) / 2.0;
-    float ry = rintf(y * (1 << gfx->lod_level)) / 2.0;
-    float dist = fabsf(org_x - rx) + fabsf(org_y - ry);
-
-    float threshold = gfx->lod_level == 0 ? 2.0 : -1.0+2.0*depth;
-    float cull_distance = gfx->lod_level == 0 ? 4.0 : 2 << (gfx->lod_level - depth);
-
-    printf("depth: %d  lod: %d  r: (%f, %f)  org: (%f, %f)  dist: %f  threshold: %f  cull: %f\n", depth, gfx->lod_level, rx, ry, org_x, org_y, dist, threshold, cull_distance);
+    if(depth == 0) {
+        float sx = -1.0 + 2.0*org_x/(1 << gfx->lod_level);
+        float sy = -1.0 + 2.0*org_y/(1 << gfx->lod_level);
+        emit_quad(gfx, sx, sy, 0.01);
+    }
 
     if(depth > gfx->lod_level) {
-        printf("terminator!\n");
+        // XXX: terminator!
         return 0;
     }
 
-    if(dist >= cull_distance) {
-        printf("distance cull!\n");
-        return 0;
-    }
-
-    if(dist <= threshold) {
-        printf("leaf node!\n");
-        emit_quad(gfx, x, y, size);
-        return 1;
-    }
-
-    printf("recurse!\n");
-
-    float origin[2] = { gfx->mouse_x, gfx->mouse_y };
-    float mid[2] = { x, y };
-    int major_axis = fabsf(origin[0] - mid[0]) < fabsf(origin[1] - mid[1]) ? 0 : 1;
+    int size = 1 << depth;
+    float screenpos[2] = { -1.0 + 2.0 * (x+0.5)/size, -1.0 + 2.0 * (y+0.5)/size };
+    float mouse[2] = { gfx->mouse_x, gfx->mouse_y };
+    int major_axis = fabsf(screenpos[0] - mouse[0]) < fabsf(screenpos[1] - mouse[1]) ? 0 : 1;
+    int major = (mouse[major_axis] < screenpos[major_axis]) ? 0 : 1;
+    int minor = (mouse[!major_axis] < screenpos[!major_axis]) ? 0 : 1;
 
     int child_mask = 0;
     int num_children = 0;
     for(int i = 0; i < 4; ++i) {
-        float new_mid[2] = { 0, 0 };
-        new_mid[major_axis] = mid[major_axis] + (size/2.0) *
-            (((origin[major_axis] < mid[major_axis]) ^ (i & 1)) ?  -1.0 : 1.0);
-        new_mid[!major_axis] = mid[!major_axis] + (size/2.0) *
-            (((origin[!major_axis] < mid[!major_axis]) ^ (i >> 1)) ? -1.0 : 1.0);
-        if(octamesh_recursive(gfx, depth + 1, new_mid[0], new_mid[1])) {
+        int child[2] = { x << 1, y << 1 };
+        child[major_axis] |= (i & 1) ^ major;
+        child[!major_axis] |= (i >> 1) ^ minor;
+
+        int fac = 1 << (gfx->lod_level - depth);
+#if 1
+        // clamp origin to edge
+        int cx = max(fac*child[0], min(2*org_x, fac*child[0]+fac));
+        int cy = max(fac*child[1], min(2*org_y, fac*child[1]+fac));
+#else
+        // use midpoint
+        int cx = fac*child[0] + fac/2;
+        int cy = fac*child[1] + fac/2;
+#endif
+
+        int dx = cx - 2*org_x;
+        int dy = cy - 2*org_y;
+        int dist = abs(dx) + abs(dy); // manhattan distance!
+        int threshold = (1 << (gfx->lod_level - depth)) + 2;
+
+        if(depth >= gfx->lod_level) continue; // XXX: debugging
+
+        printf("%*c depth: %d  quad: %d  dist: %d  threshold: %d\n", 4*depth, ' ', depth, i, dist, threshold);
+        printf("%*c mid: (%d, %d)  c: (%d, %d)   org: (%d, %d)\n", 4*depth, ' ', (2*child[0]+1), (2*child[1]+1), cx, cy, 2*org_x, 2*org_y);
+
+        if(dist > threshold) {
+            continue;
+        }
+
+        if(octamesh_recursive(gfx, depth + 1, child[0], child[1])) {
             child_mask |= (1 << i);
             num_children += 1;
         }
+    }
+
+    if(num_children == 0) {
+        emit_quad(gfx, screenpos[0], screenpos[1], 1.0/size);
     }
 
     //emit_patched_quad(gfx, x, y, size, num_children, child_mask);
@@ -185,6 +204,7 @@ void fill_vertex_buffer(struct gfx *gfx) {
     gfx->vertex_count = 0;
 
     octamesh_recursive(gfx, 0, 0.0, 0.0);
+    printf("\n\n");
 
     glUnmapBuffer(GL_ARRAY_BUFFER);
 }
