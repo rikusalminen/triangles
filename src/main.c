@@ -156,26 +156,34 @@ int octamesh_recursive(struct gfx *gfx, int depth, int x, int y) {
         child[major_axis] |= (i & 1) ^ major;
         child[!major_axis] |= (i >> 1) ^ minor;
 
-        int fac = 1 << (gfx->lod_level - depth);
-#if 1
+        if(depth > gfx->lod_level) continue; // XXX: debugging
+
         // clamp origin to edge
-        int cx = max(fac*child[0], min(2*org_x, fac*child[0]+fac));
-        int cy = max(fac*child[1], min(2*org_y, fac*child[1]+fac));
-#else
-        // use midpoint
-        int cx = fac*child[0] + fac/2;
-        int cy = fac*child[1] + fac/2;
-#endif
+        int shift = max(0, gfx->lod_level - depth - 1);
+        int cx = max(child[0] << shift, min(org_x, (child[0]+1) << shift));
+        int cy = max(child[1] << shift, min(org_y, (child[1]+1) << shift));
 
-        int dx = cx - 2*org_x;
-        int dy = cy - 2*org_y;
+        printf("%*c  child %d: (%d, %d)\n", 4*depth, ' ', i, child[0], child[1]);
+
+        int dx = cx - org_x;
+        int dy = cy - org_y;
+
+        int oddmask = (1 << max(0, gfx->lod_level - depth - 1));
+        if(org_x & oddmask) {
+            printf("%*c  odd x  org: %d  mask: %x  d: (%d, %d)\n", 4*depth, ' ', org_x, oddmask, dx, dy);
+            dx = max(0, fabs(dx)-1);
+        }
+
+        if(org_y & oddmask) {
+            printf("%*c  odd y  org: %d  mask: %x  d: (%d, %d)\n", 4*depth, ' ', org_y, oddmask, dx, dy);
+            dy = max(0, fabs(dy)-1);
+        }
+
         int dist = abs(dx) + abs(dy); // manhattan distance!
-        int threshold = (1 << (gfx->lod_level - depth)) + 2;
+        int threshold = max(0, (gfx->lod_level - depth) - 1); // (1 << (gfx->lod_level - depth));
 
-        if(depth >= gfx->lod_level) continue; // XXX: debugging
-
-        printf("%*c depth: %d  quad: %d  dist: %d  threshold: %d\n", 4*depth, ' ', depth, i, dist, threshold);
-        printf("%*c mid: (%d, %d)  c: (%d, %d)   org: (%d, %d)\n", 4*depth, ' ', (2*child[0]+1), (2*child[1]+1), cx, cy, 2*org_x, 2*org_y);
+        printf("%*c  depth: %d  quad: %d  dist: %d  threshold: %d\n", 4*depth, ' ', depth, i, dist, threshold);
+        printf("%*c  c: (%d, %d)   org: (%d, %d)\n\n", 4*depth, ' ', cx, cy, org_x, org_y);
 
         if(dist > threshold) {
             continue;
