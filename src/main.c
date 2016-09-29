@@ -105,12 +105,153 @@ void emit_quad(struct gfx *gfx, float x, float y, float size) {
 
 }
 
-/*
-void emit_patched_quad(struct gfx *gfx, float x, float y, float size, int num_children, int child_mask) {
-    (void)num_children; (void)child_mask;
-    emit_quad(gfx, x, y, size);
+void emit_quad_corner(struct gfx *gfx, float x, float y, float size, int corner) {
+    if(corner == 0) { // XXX: ugly repetition!!
+        // west north west
+        emit_vertex(gfx, x-size, y);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y+size);
+
+        // south south east
+        emit_vertex(gfx, x, y-size);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x, y);
+
+        // north
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y+size);
+        emit_vertex(gfx, x-size, y+size);
+
+        // east
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x+size, y+size);
+    } else if(corner == 1) {
+        // south south west
+        emit_vertex(gfx, x, y-size);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y-size);
+
+        // east north east
+        emit_vertex(gfx, x+size, y);
+        emit_vertex(gfx, x+size, y+size);
+        emit_vertex(gfx, x, y);
+
+        // west
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y+size);
+        emit_vertex(gfx, x-size, y-size);
+
+        // north
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y+size);
+        emit_vertex(gfx, x-size, y+size);
+    } else if(corner == 2) {
+        // north north east
+        emit_vertex(gfx, x, y+size);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y+size);
+
+        // west south west
+        emit_vertex(gfx, x-size, y);
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x, y);
+
+        // east
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x+size, y+size);
+
+        // south
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x+size, y-size);
+    } else if(corner == 3) {
+        // east south east
+        emit_vertex(gfx, x+size, y);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y-size);
+
+        // north north west
+        emit_vertex(gfx, x, y+size);
+        emit_vertex(gfx, x-size, y+size);
+        emit_vertex(gfx, x, y);
+
+        // south
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x+size, y-size);
+
+        // west
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y+size);
+        emit_vertex(gfx, x-size, y-size);
+    }
 }
-*/
+
+void emit_quad_edge(struct gfx *gfx, float x, float y, float size, int edge) {
+    if(edge == 0) {  /// XXX: ugly repetition
+        // west north west
+        emit_vertex(gfx, x-size, y);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y+size);
+
+        // east north east
+        emit_vertex(gfx, x+size, y);
+        emit_vertex(gfx, x+size, y+size);
+        emit_vertex(gfx, x, y);
+
+        // north
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y+size);
+        emit_vertex(gfx, x-size, y+size);
+    } else if(edge == 1) {
+        // north north east
+        emit_vertex(gfx, x, y+size);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y+size);
+
+        // south south east
+        emit_vertex(gfx, x, y-size);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x, y);
+
+        // east
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y-size);
+        emit_vertex(gfx, x+size, y+size);
+    } else if(edge == 2) {
+        // west south west
+        emit_vertex(gfx, x-size, y);
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x, y);
+
+        // east south east
+        emit_vertex(gfx, x+size, y);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x+size, y-size);
+
+        // south
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y-size);
+        emit_vertex(gfx, x+size, y-size);
+    } else if(edge == 3) {
+        // north north west
+        emit_vertex(gfx, x, y+size);
+        emit_vertex(gfx, x-size, y+size);
+        emit_vertex(gfx, x, y);
+
+        // south south west
+        emit_vertex(gfx, x, y-size);
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y-size);
+
+        // west
+        emit_vertex(gfx, x, y);
+        emit_vertex(gfx, x-size, y+size);
+        emit_vertex(gfx, x-size, y-size);
+    }
+}
 
 static inline int min(int x, int y) { return x < y ? x : y; }
 static inline int max(int x, int y) { return x > y ? x : y; }
@@ -131,11 +272,13 @@ int octamesh_recursive(struct gfx *gfx, int depth, int x, int y) {
     org_y = max(fac*y, min(org_y, fac*(y+1)));
 #endif
 
+#if 0
     if(depth == 0) {
         float sx = -1.0 + 2.0*org_x/(1 << gfx->lod_level);
         float sy = -1.0 + 2.0*org_y/(1 << gfx->lod_level);
         emit_quad(gfx, sx, sy, 0.01);
     }
+#endif
 
     if(depth > gfx->lod_level) {
         // XXX: terminator!
@@ -190,13 +333,37 @@ int octamesh_recursive(struct gfx *gfx, int depth, int x, int y) {
         }
 
         if(octamesh_recursive(gfx, depth + 1, child[0], child[1])) {
-            child_mask |= (1 << i);
+            int xy = ((major ^ (i & 1)) << (major_axis)) |
+                ((minor ^ (i >> 1)) << (!major_axis));
+            int mask = 1 << xy;
+            child_mask |= mask;
             num_children += 1;
         }
     }
 
+    printf("%*c  patch  num_children: %d  mask: %d\n", 4*depth, ' ', num_children, child_mask);
+
     if(num_children == 0) {
         emit_quad(gfx, screenpos[0], screenpos[1], 1.0/size);
+    }
+
+    if(num_children == 1) {
+        int corner = 31 - __builtin_clz(child_mask);
+        printf("%*c  patch  corner %d\n", 4*depth, ' ', corner);
+
+        emit_quad_corner(gfx, screenpos[0], screenpos[1], 1.0/size, corner);
+
+    }
+
+    if(num_children == 2) {
+        int edge = -1;
+        if(child_mask == 3) edge = 0; // XXX: this is ugly!
+        if(child_mask == 5) edge = 1;
+        if(child_mask == 12) edge = 2;
+        if(child_mask == 10) edge = 3;
+
+        printf("%*c  patch  edge %d\n", 4*depth, ' ', edge);
+        emit_quad_edge(gfx, screenpos[0], screenpos[1], 1.0/size, edge);
     }
 
     //emit_patched_quad(gfx, x, y, size, num_children, child_mask);
