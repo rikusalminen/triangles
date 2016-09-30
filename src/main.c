@@ -64,7 +64,6 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
     glEnableVertexAttribArray(0);
 
-    gfx->triangle_count = 32;
     gfx->dirty_vertex_buffer = 1;
 }
 
@@ -311,7 +310,8 @@ int octamesh_recursive(struct gfx *gfx, int depth, int x, int y) {
         int dx = cx - org_x;
         int dy = cy - org_y;
 
-        int oddmask = (1 << max(0, gfx->lod_level - depth - 1));
+        //int oddmask = (1 << max(0, gfx->lod_level - depth - 1));
+        int oddmask = (1 << max(0, gfx->lod_level - depth)) - 1;
         if(org_x & oddmask) {
             printf("%*c  odd x  org: %d  mask: %x  d: (%d, %d)\n", 4*depth, ' ', org_x, oddmask, dx, dy);
             dx = max(0, fabs(dx)-1);
@@ -418,7 +418,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUseProgram(gfx->identity_program);
     glBindVertexArray(gfx->identity_vertex_array);
 
-    unsigned vertex_count = (gfx->vertex_count < 3*gfx->triangle_count) ?
+    unsigned vertex_count = (gfx->triangle_count == 0 || gfx->vertex_count < 3*gfx->triangle_count) ?
         gfx->vertex_count : 3*gfx->triangle_count;
     glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 
