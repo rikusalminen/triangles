@@ -511,7 +511,8 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
         }
     }
 
-    if(event->type == GLWT_WINDOW_MOUSE_MOTION) {
+    if(event->type == GLWT_WINDOW_MOUSE_MOTION &&
+        event->motion.buttons != 0) {
         int sx = event->motion.x;
         int sy = event->motion.y;
 
