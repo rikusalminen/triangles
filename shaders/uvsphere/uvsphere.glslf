@@ -6,17 +6,17 @@ in vec2 texcoord;
 out vec4 color;
 
 const int num_grid = 8;
+const vec4 diffuse_color = vec4(0.2, 0.4, 0.7, 1.0);
+const vec4 grid_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 void main() {
-    vec2 grid = vec2(2, 1) * num_grid *
+    vec2 coord = num_grid * vec2(2, 1) *
         (texcoord +
          dFdx(texcoord) * gl_SamplePosition.xx +
          dFdy(texcoord) * gl_SamplePosition.yy);
+    vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
+    float line = min(grid.x, grid.y);
 
-    if(mod(grid.x, 1.0) > 0.9 || mod(grid.y, 1.0) > 0.9 ||
-        mod(grid.x, 1.0) < 0.1 || mod(grid.y, 1.0) < 0.1)
-        gl_SampleMask[0] = 1 << gl_SampleID;
-        //discard;
-
-    color = vec4(1.0, 1.0, 1.0, 1.0);
+    // Just visualize the grid lines directly
+    color = mix(grid_color, diffuse_color, min(line, 1.0));
 }

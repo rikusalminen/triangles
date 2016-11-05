@@ -65,6 +65,9 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
     gfx->p = 1.0;
     gfx->e = 0.0;
+
+    gfx->rings = 32;
+    gfx->slices = 64;
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -83,7 +86,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
 
-    const float background[] = { 0.2, 0.4, 0.7, 1.0 };
+    const float background[] = { 0.0, 0.0, 0.0, 0.0 };
     glClearBufferfv(GL_COLOR, 0, background);
 
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
