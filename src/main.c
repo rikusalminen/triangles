@@ -44,6 +44,8 @@ struct gfx
 
     float p, e;
     float i, an, arg;
+
+    unsigned skybox_program;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -53,6 +55,7 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->conic_program = shader_load("shaders/conic/conic.glslv", "", "",  "", "shaders/conic/conic.glslf");
     gfx->hsv_program = shader_load("shaders/hsv/hsv.glslv", "", "",  "", "shaders/hsv/hsv.glslf");
     gfx->uvsphere_program = shader_load("shaders/uvsphere/uvsphere.glslv", "", "",  "", "shaders/uvsphere/uvsphere.glslf");
+    gfx->skybox_program = shader_load("shaders/skybox/skybox.glslv", "", "",  "", "shaders/skybox/skybox.glslf");
 
     glGenVertexArrays(1, &gfx->axes_vertex_array);
 
@@ -206,6 +209,16 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+
+    // skybox
+    glUseProgram(gfx->skybox_program);
+    index = glGetUniformLocation(gfx->skybox_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
+    index = glGetUniformLocation(gfx->skybox_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glEndQuery(query_targets[i]);
