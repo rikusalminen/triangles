@@ -38,9 +38,8 @@ struct gfx
     int rings, slices;
 
     float yaw, pitch;
+    float camera_distance;
     int mouse_x, mouse_y;
-
-    vec4 arcball_quat;
 
     float p, e;
     float i, an, arg;
@@ -64,7 +63,9 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     gfx->mouse_x = -1;
     gfx->mouse_y = -1;
 
-    gfx->arcball_quat = vec(0.0, 0.0, 0.0, 1.0);
+    gfx->pitch = 0;
+    gfx->yaw = 0;
+    gfx->camera_distance = 5.0;
 
     gfx->p = 1.0;
     gfx->e = 0.0;
@@ -104,28 +105,30 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
+    // projection and view matrix
+    mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
+    mat4 camera_rotation = quat_to_mat(
+        qprod(vec(0, 0, sin(gfx->yaw/2), cos(gfx->yaw/2)),
+                vec(sin(gfx->pitch/2), 0, 0, cos(gfx->pitch/2))));
+    mat4 view_matrix = mmmul(
+        mtranslate(vec(0.0, 0.0, -gfx->camera_distance, 1.0)),
+        camera_rotation
+        );
+
+
+    // model matrix
+    //mat4 model_matrix = midentity();
+    mat4 model_matrix = mat_euler(vec(0.0, 0.0, t/3.0, 0.0));
+
+    // AXES
     glUseProgram(gfx->axes_program);
     glBindVertexArray(gfx->axes_vertex_array);
 
     int index;
-    mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
     index = glGetUniformLocation(gfx->axes_program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
-
-    //mat4 camera_rotation = mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0));
-    mat4 camera_rotation = quat_to_mat(gfx->arcball_quat);
-    mat4 view_matrix = mmmul(
-        mtranslate(vec(0.0, 0.0, -5.0, 1.0)),
-        camera_rotation
-        );
-
     index = glGetUniformLocation(gfx->axes_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
-
-    mat4 model_matrix = midentity();
-    //mat4 model_matrix = mmmul(mtranslate(vec(0, 0, -3, 0)), mat_euler(vec(0, t/5, 0, 0)));
-    //mat4 model_matrix = mat_euler(vec(t/3, 0.0, 0.0, 0.0));
-    //mat4 model_matrix = mat_euler(vec(gfx->pitch, gfx->yaw, 0.0, 0.0));
     index = glGetUniformLocation(gfx->axes_program, "model_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
@@ -190,7 +193,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUseProgram(gfx->hsv_program);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
-    // uvsphere
+    // UVSPHERE
     int rings = gfx->rings, slices = gfx->slices;
     int uvsphere_verts = (4 + 2*rings + 2)*(3+slices) - 2;
 
@@ -204,14 +207,12 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
     index = glGetUniformLocation(gfx->uvsphere_program, "view_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
+    index = glGetUniformLocation(gfx->uvsphere_program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
 
-    //glDisable(GL_CULL_FACE);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-
-    // skybox
+    // SKYBOX
     glUseProgram(gfx->skybox_program);
     index = glGetUniformLocation(gfx->skybox_program, "projection_matrix");
     glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
@@ -276,13 +277,6 @@ static void main_loop(GLWTWindow *window, struct gfx *gfx)
     quit_gfx(window, gfx);
 }
 
-vec4 arcball_vector(float x, float y) {
-    return x*x + y*y < 1.0 ?
-        vec(x, y, 1.0 - sqrt(x*x + y*y), 0.0) :
-        vunit(vec(x, y, 0.0, 0.0));
-
-}
-
 static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, void *userdata)
 {
     struct gfx *gfx = (struct gfx*)userdata;
@@ -294,33 +288,23 @@ static void event_callback(GLWTWindow *window, const GLWTWindowEvent *event, voi
 
         if(event->motion.buttons & 1 &&
             gfx->mouse_x != -1 && gfx->mouse_y != -1) {
-            int old_x = gfx->mouse_x, old_y = gfx->mouse_y;
-            int new_x = event->motion.x, new_y = event->motion.y;
-            vec4 arcball_old = arcball_vector(2.0 * old_x/width - 1.0, -2.0*old_y/height + 1.0);
-            vec4 arcball_new = arcball_vector(2.0 * new_x/width - 1.0, -2.0*new_y/height + 1.0);
-
-            vec4 arcball_half = vunit(arcball_old + arcball_new);
-            vec4 axis = vcross(arcball_old, arcball_half);
-
-            axis = qprod(qprod(gfx->arcball_quat, axis), qconj(gfx->arcball_quat));
-
-            axis[3] = vdot(arcball_old, arcball_half)[0];
-            vec4 quat = vunit(axis);
-
-            gfx->arcball_quat = qprod(quat, gfx->arcball_quat);
-
-            /*
             int dx = event->motion.x - gfx->mouse_x;
             int dy = event->motion.y - gfx->mouse_y;
 
             float sensitivity = 2.0;
             gfx->yaw += sensitivity * (float)dx / width;
             gfx->pitch += sensitivity * (float)dy / height;
-            */
         }
 
         gfx->mouse_x = event->motion.x;
         gfx->mouse_y = event->motion.y;
+    }
+
+    if(event->type == GLWT_WINDOW_BUTTON_DOWN) {
+        if(event->button.button == 4)
+            gfx->camera_distance = fmaxf(1.0, gfx->camera_distance - 1.0);
+        if(event->button.button == 5)
+            gfx->camera_distance = gfx->camera_distance + 1.0;
     }
 
     if(event->type == GLWT_WINDOW_KEY_DOWN) {

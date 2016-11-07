@@ -4,6 +4,7 @@ const float pi = 3.141592653589;
 
 uniform mat4 projection_matrix;
 uniform mat4 view_matrix;
+uniform mat4 model_matrix;
 
 uniform int num_rings;
 uniform int num_slices;
@@ -39,5 +40,5 @@ void main() {
 
     normal = xyz;
     texcoord = vec2(u, v);
-    gl_Position = projection_matrix * view_matrix * vec4(xyz, 1.0);
+    gl_Position = projection_matrix * view_matrix * model_matrix * vec4(xyz, 1.0);
 }
