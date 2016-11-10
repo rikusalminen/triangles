@@ -6,8 +6,6 @@
 
 #include <threedee/threedee.h>
 
-#include "nesfont.h"
-
 extern unsigned shader_load(const char *vert, const char *tess_ctrl, const char *tess_eval, const char *geom, const char *frag);
 
 static const GLenum query_targets[] = {
@@ -31,10 +29,8 @@ struct gfx
     unsigned program;
     unsigned vertex_array;
 
-    unsigned font_texture;
-    unsigned font_sampler;
-
-
+    int textmode_buffer_size;
+    unsigned textmode_buffer;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -46,13 +42,10 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
     glGenVertexArrays(1, &gfx->vertex_array);
 
-    glGenTextures(1, &gfx->font_texture);
-    glBindTexture(GL_TEXTURE_2D, gfx->font_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 128, 48, 0, GL_RED, GL_UNSIGNED_BYTE, nesfont);
-
-    glGenSamplers(1, &gfx->font_sampler);
-    glSamplerParameteri(gfx->font_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glSamplerParameteri(gfx->font_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gfx->textmode_buffer_size = 4096;
+    glGenBuffers(1, &gfx->textmode_buffer);
+    glBindBuffer(GL_UNIFORM_BUFFER, gfx->textmode_buffer);
+    glBufferData(GL_UNIFORM_BUFFER, gfx->textmode_buffer_size, NULL, GL_DYNAMIC_DRAW);
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -61,14 +54,28 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
 
     glDeleteQueries(num_queries, gfx->queries);
 
-    glDeleteTextures(1, &gfx->font_texture);
-    glDeleteSamplers(1, &gfx->font_sampler);
+    glDeleteBuffers(1, &gfx->textmode_buffer);
+}
+
+#include <string.h>
+#include <stdio.h>
+
+static void update_textmode(struct gfx* gfx, int frame) {
+    char textmode[gfx->textmode_buffer_size];
+    memset(textmode, 0, sizeof(textmode));
+    for(int i = 0; i < 25; ++i)
+        snprintf(textmode + i*80, 80, "%d hello world  (frame: %d)", i, frame);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, gfx->textmode_buffer);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, gfx->textmode_buffer_size, textmode);
 }
 
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
     float t = frame / 60.0;
     (void)t;
+
+    update_textmode(gfx, frame);
 
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
@@ -80,12 +87,10 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glViewport(0, 0, width, height);
 
     glUseProgram(gfx->program);
-
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_2D, gfx->font_texture);
-    glBindSampler(0, gfx->font_sampler);
-
-    //glUniform1i(0, 0);
+    //int index = glGetUniformBlockIndex(gfx->program, "textmode");
+    int textmode_binding = 0;
+    //glUniformBlockBinding(gfx->program, index, textmode_binding);
+    glBindBufferBase(GL_UNIFORM_BUFFER, textmode_binding, gfx->textmode_buffer);
 
     glBindVertexArray(gfx->vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 3);
