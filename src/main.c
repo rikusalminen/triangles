@@ -82,6 +82,30 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
     glDeleteProgram(gfx->axes_program);
 }
 
+static void draw_sphere(
+    struct gfx *gfx,
+    const float *projection_matrix,
+    const float *view_matrix,
+    const float *model_matrix) {
+    int rings = gfx->rings, slices = gfx->slices;
+    int uvsphere_verts = (4 + 2*rings + 2)*(3+slices) - 2;
+
+    glUseProgram(gfx->uvsphere_program);
+    int index = glGetUniformLocation(gfx->uvsphere_program, "num_rings");
+    glUniform1i(index, rings);
+    index = glGetUniformLocation(gfx->uvsphere_program, "num_slices");
+    glUniform1i(index, slices);
+
+    index = glGetUniformLocation(gfx->uvsphere_program, "projection_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, projection_matrix);
+    index = glGetUniformLocation(gfx->uvsphere_program, "view_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, view_matrix);
+    index = glGetUniformLocation(gfx->uvsphere_program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, model_matrix);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
+}
+
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
     float t = frame / 60.0;
@@ -194,23 +218,19 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     // UVSPHERE
-    int rings = gfx->rings, slices = gfx->slices;
-    int uvsphere_verts = (4 + 2*rings + 2)*(3+slices) - 2;
+    draw_sphere(gfx,
+        (const float*)&projection_matrix,
+        (const float*)&view_matrix,
+        (const float*)&model_matrix);
 
-    glUseProgram(gfx->uvsphere_program);
-    index = glGetUniformLocation(gfx->uvsphere_program, "num_rings");
-    glUniform1i(index, rings);
-    index = glGetUniformLocation(gfx->uvsphere_program, "num_slices");
-    glUniform1i(index, slices);
+    float moon_distance = 10;
+    vec4 moon_pos = vec(moon_distance * cos(t/10), moon_distance * sin(t/10), 0, 1);
+    mat4 moon_model = mtranslate(moon_pos);
 
-    index = glGetUniformLocation(gfx->uvsphere_program, "projection_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&projection_matrix);
-    index = glGetUniformLocation(gfx->uvsphere_program, "view_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&view_matrix);
-    index = glGetUniformLocation(gfx->uvsphere_program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, (const float*)&model_matrix);
-
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
+    draw_sphere(gfx,
+        (const float*)&projection_matrix,
+        (const float*)&view_matrix,
+        (const float*)&moon_model);
 
     // SKYBOX
     glUseProgram(gfx->skybox_program);
