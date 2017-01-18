@@ -139,7 +139,6 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
         camera_rotation
         );
 
-
     // model matrix
     //mat4 model_matrix = midentity();
     mat4 model_matrix = mat_euler(vec(0.0, 0.0, t/3.0, 0.0));
@@ -175,7 +174,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     float maxf = e <= 1.0 ? M_PI :
         M_PI - acosf(fminf(1.0, 1.0/e));
 
-    float maxr = 5.0; // maximum radius
+    float maxr = 50.0; // maximum radius
     float cosf = (p/maxr - 1.0) / e;
     float maxrf = acosf(fmaxf(-1.0, fminf(1.0, cosf)));
 
@@ -224,8 +223,24 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
         (const float*)&model_matrix);
 
     float moon_distance = 10;
+    float moon_size = 3;
+    t = 0;
     vec4 moon_pos = vec(moon_distance * cos(t/10), moon_distance * sin(t/10), 0, 1);
-    mat4 moon_model = mtranslate(moon_pos);
+    mat4 moon_model = mmmul(
+        mtranslate(moon_pos),
+        mscale(vec(moon_size, moon_size, moon_size, 1.0)));
+
+    vec4 camera_pos = mvmul(mtranspose(camera_rotation), vec(0.0, 0.0, gfx->camera_distance, 1.0));
+    vec4 moon_dir = moon_pos - camera_pos;
+    vec4 view_dir = mvmul(mtranspose(camera_rotation), moon_dir);
+    vec4 screen_pos = vunit(view_dir);
+
+    printf("camera_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        camera_pos[0], camera_pos[1], camera_pos[2], camera_pos[3]);
+    printf("view_dir: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        view_dir[0], view_dir[1], view_dir[2], view_dir[3]);
+    printf("screen_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        screen_pos[0], screen_pos[1], screen_pos[2], screen_pos[3]);
 
     draw_sphere(gfx,
         (const float*)&projection_matrix,
