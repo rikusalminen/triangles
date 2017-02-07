@@ -2,8 +2,10 @@
 
 const float pi = 3.1416926535;
 
-uniform float fov = pi / 4.0;
-uniform float aspect = 1.0;
+layout(location = 0) uniform float fov;
+layout(location = 1) uniform float aspect;
+
+layout(location = 2) uniform sampler2D tex;
 
 in vec4 pos;
 
@@ -52,8 +54,8 @@ void main() {
 
     // calculate uv coordinates and grid
     int num_grid = 16;
-    vec2 uv = num_grid * vec2(0.5 + 0.5*(lon / pi), 0.5 + (lat / pi));
-    vec2 grid = abs(fract(uv - 0.5) - 0.5) / fwidth(uv);
+    vec2 uv = vec2(0.5 + 0.5*(lon / pi), 0.5 + (lat / pi));
+    vec2 grid = abs(fract(num_grid*uv - 0.5) - 0.5) / fwidth(num_grid*uv);
     float line = min(min(grid.x, grid.y), 1.0);
 
     // diffuse lighting
@@ -61,9 +63,12 @@ void main() {
     vec4 light = vec4(-1.0, 0.0, 0.0, 0.0);
     float diffuse = dot(normal, light);
 
+    // texture map
+    vec4 tex_color = texture(tex, uv);
+
     // apply color
     vec4 ambient_color = vec4(0.2, 0.2, 0.2, 1.0);
     vec4 diffuse_color = vec4(0.2, 0.7, 0.4, 1.0);
     vec4 grid_color = vec4(1.0, 1.0, 1.0, 1.0);
-    color = mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
+    color = tex_color * mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
 }

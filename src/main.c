@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <GLWT/glwt.h>
 #include <GLXW/glxw.h>
@@ -28,6 +29,9 @@ struct gfx
 
     unsigned program;
     unsigned vertex_array;
+
+    unsigned texture;
+    unsigned sampler;
 };
 
 static void init_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -38,6 +42,29 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glGenQueries(num_queries, gfx->queries);
 
     glGenVertexArrays(1, &gfx->vertex_array);
+
+    glGenTextures(1, &gfx->texture);
+    glGenSamplers(1, &gfx->sampler);
+
+
+    const int tex_width = 128, tex_height = 128, tex_levels = 5;
+
+    glBindTexture(GL_TEXTURE_2D, gfx->texture);
+    glTexStorage2D(GL_TEXTURE_2D, tex_levels, GL_RGBA8, tex_width, tex_height);
+    for(int level = 0; level < tex_levels; ++level) {
+        uint32_t pixels[tex_width * tex_height];
+        memset(pixels, 0xff, tex_width*tex_height*4);
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            level,
+            0, 0, // offset
+            tex_width>>level, tex_height>>level,
+            GL_RGBA, GL_UNSIGNED_BYTE,
+            pixels);
+    }
+
+    glSamplerParameteri(gfx->sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glSamplerParameteri(gfx->sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
@@ -46,9 +73,6 @@ static void quit_gfx(GLWTWindow *window, struct gfx *gfx)
 
     glDeleteQueries(num_queries, gfx->queries);
 }
-
-#include <string.h>
-#include <stdio.h>
 
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
@@ -64,15 +88,21 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     glViewport(0, 0, width, height);
 
-    //float aspect = (float)width / height;
-    //float fov = M_PI / 4.0;
+    float aspect = (float)width / height;
+    float fov = M_PI / 4.0;
 
     glUseProgram(gfx->program);
-    //int index = glGetUniformBlockIndex(gfx->program, "aspect");
-    //glUniform1f(index, 0.5f);
-    //printf("program: %u\tindex: %d\n", gfx->program, index);
-    //index = glGetUniformBlockIndex(gfx->program, "fov");
-    //glUniform1f(index, fov);
+    int index = glGetUniformLocation(gfx->program, "aspect");
+    glUniform1f(index, aspect);
+    index = glGetUniformLocation(gfx->program, "fov");
+    glUniform1f(index, fov);
+
+    index = glGetUniformLocation(gfx->program, "tex");
+    glUniform1i(index, 0);
+
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_2D, gfx->texture);
+    glBindSampler(0, gfx->texture);
 
     glBindVertexArray(gfx->vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 3);
