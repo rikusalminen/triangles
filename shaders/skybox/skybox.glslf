@@ -14,7 +14,6 @@ void main() {
         (screen_pos +
          dFdx(screen_pos) * gl_SamplePosition.xxxx +
          dFdy(screen_pos) * gl_SamplePosition.yyyy);
-    world_pos = world_pos / world_pos.wwww;
 
     float lat = asin(world_pos.z / length(world_pos.xyz));
     float lon = atan(world_pos.y, world_pos.x);

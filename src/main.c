@@ -106,6 +106,34 @@ static void draw_sphere(
     glDrawArrays(GL_TRIANGLE_STRIP, 0, uvsphere_verts);
 }
 
+static mat4 frustum_reverse_infinite_z(float left, float right, float bottom, float top, float near) {
+    return (mat4){{
+        { 2.0*near / (right - left), 0.0, 0.0, 0.0 },
+        { 0.0, 2.0 * near / (top - bottom), 0.0, 0.0 },
+        { (right + left)/(right - left), (top + bottom) / (top - bottom), 0.0, -1.0 },
+        { 0.0, 0.0, near, 0.0 } }};
+}
+
+static mat4 frustum_reverse_infinite_z_inverse(float left, float right, float bottom, float top, float near) {
+    return (mat4){{
+        { (right - left)/(2.0 * near), 0.0, 0.0, 0.0 },
+        { 0.0, (top - bottom) / (2.0 * near), 0.0, 0.0 },
+        { 0.0, 0.0, 0.0, 1.0 / near },
+        { (right + left)/(2.0 * near), (top + bottom) / (2.0 * near), -1.0, 0.0 } }};
+}
+
+static mat4 perspective_reverse_infinite_z(float fov, float aspect, float near) {
+    float ymax = near * tanf(fov / 2.0);
+    float xmax = ymax * aspect;
+    return frustum_reverse_infinite_z(-xmax, xmax, -ymax, ymax, near);
+}
+
+static mat4 perspective_reverse_infinite_z_inverse(float fov, float aspect, float near) {
+    float ymax = near * tanf(fov / 2.0);
+    float xmax = ymax * aspect;
+    return frustum_reverse_infinite_z_inverse(-xmax, xmax, -ymax, ymax, near);
+}
+
 static void paint(struct gfx *gfx, int width, int height, int frame)
 {
     float t = frame / 60.0;
@@ -117,9 +145,13 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     const float background[] = { 0.0, 0.0, 0.0, 0.0 };
     glClearBufferfv(GL_COLOR, 0, background);
 
-    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 0.0, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Set Z to 0..1 range, enable depth clip (for reverse infinite z)
+    glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    glEnable(GL_DEPTH_CLAMP);
 
     glViewport(0, 0, width, height);
     glEnable(GL_CULL_FACE);
@@ -127,10 +159,13 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     glFrontFace(GL_CCW);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_GEQUAL);
 
     // projection and view matrix
-    mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
+    //mat4 projection_matrix = mat_perspective_fovy(M_PI/4.0, (float)width/height, 0.1, 100.0);
+    mat4 projection_matrix = perspective_reverse_infinite_z(M_PI/4.0, (float)width/height, 0.1);
+    mat4 projection_inverse = perspective_reverse_infinite_z_inverse(M_PI/4.0, (float)width/height, 0.1);
+
     mat4 camera_rotation = quat_to_mat(
         qprod(vec(0, 0, sin(gfx->yaw/2), cos(gfx->yaw/2)),
                 vec(sin(gfx->pitch/2), 0, 0, cos(gfx->pitch/2))));
@@ -235,12 +270,12 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     vec4 view_dir = mvmul(mtranspose(camera_rotation), moon_dir);
     vec4 screen_pos = vunit(view_dir);
 
-    printf("camera_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
-        camera_pos[0], camera_pos[1], camera_pos[2], camera_pos[3]);
-    printf("view_dir: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
-        view_dir[0], view_dir[1], view_dir[2], view_dir[3]);
-    printf("screen_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
-        screen_pos[0], screen_pos[1], screen_pos[2], screen_pos[3]);
+    //printf("camera_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        //camera_pos[0], camera_pos[1], camera_pos[2], camera_pos[3]);
+    //printf("view_dir: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        //view_dir[0], view_dir[1], view_dir[2], view_dir[3]);
+    //printf("screen_pos: (%2.2f, %2.2f, %2.2f, %2.2f)\n",
+        //screen_pos[0], screen_pos[1], screen_pos[2], screen_pos[3]);
 
     draw_sphere(gfx,
         (const float*)&projection_matrix,
