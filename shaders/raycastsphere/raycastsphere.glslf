@@ -18,8 +18,8 @@ void main() {
     // ray from camera to near plane
     //vec4 v = vec4((pos.x/aspect) / focal, pos.y / focal, focal, 0.0);
     vec4 v = vec4(
-        ((pos.x + dFdx(pos.x) * gl_SamplePosition.x) / aspect) / focal,
-        (pos.y + dFdy(pos.y) * gl_SamplePosition.y) / focal,
+        (pos.x + dFdx(pos.x) * gl_SamplePosition.x) / focal,
+        (pos.y + dFdy(pos.y) * gl_SamplePosition.y) / (aspect * focal),
         focal,
         0.0);
     // sphere position
