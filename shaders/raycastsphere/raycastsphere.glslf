@@ -7,6 +7,8 @@ layout(location = 1) uniform float aspect;
 
 layout(location = 2) uniform sampler2D tex;
 
+layout(location = 3) uniform mat4 model_matrix;
+
 in vec4 pos;
 
 out vec4 color;
@@ -48,6 +50,11 @@ void main() {
     // point on sphere
     vec4 p = t*v - s;
 
+    gl_FragDepth = p.z / r;
+
+    // transform by inverse model matrix
+    p = inverse(model_matrix) * p;
+
     // convert cartesian to spherical coordinates (longitude, latitude)
     float lon = atan(p.y, p.x);
     float lat = asin(p.z / length(p));
@@ -55,8 +62,8 @@ void main() {
     // calculate uv coordinates and grid
     int num_grid = 16;
     vec2 uv = vec2(0.5 + 0.5*(lon / pi), 0.5 + (lat / pi));
-    vec2 grid = abs(fract(num_grid*uv - 0.5) - 0.5) / fwidth(num_grid*uv);
-    float line = min(min(grid.x, grid.y), 1.0);
+    //vec2 grid = abs(fract(num_grid*uv - 0.5) - 0.5) / fwidth(num_grid*uv);
+    //float line = min(min(grid.x, grid.y), 1.0);
 
     // diffuse lighting
     vec4 normal = normalize(p);
@@ -70,5 +77,6 @@ void main() {
     vec4 ambient_color = vec4(0.2, 0.2, 0.2, 1.0);
     vec4 diffuse_color = vec4(0.2, 0.7, 0.4, 1.0);
     vec4 grid_color = vec4(1.0, 1.0, 1.0, 1.0);
-    color = tex_color * mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
+    color = tex_color * mix(ambient_color, diffuse_color, diffuse);
+    //color = tex_color * mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
 }

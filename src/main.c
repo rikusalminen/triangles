@@ -47,18 +47,28 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
     glGenSamplers(1, &gfx->sampler);
 
 
-    const int tex_width = 128, tex_height = 128, tex_levels = 5;
+    const int tex_width = 256, tex_height = 128, tex_levels = 5;
 
     glBindTexture(GL_TEXTURE_2D, gfx->texture);
     glTexStorage2D(GL_TEXTURE_2D, tex_levels, GL_RGBA8, tex_width, tex_height);
     for(int level = 0; level < tex_levels; ++level) {
         uint32_t pixels[tex_width * tex_height];
-        memset(pixels, 0xff, tex_width*tex_height*4);
+
+        int w = tex_width >> level, h = tex_height >> level;
+        printf("level: %d   w: %d  h: %d\n", level, w, h);
+	for(int i = 0; i < h; ++i) {
+    	    for(int j = 0; j < w; ++j) {
+        	int cell_width = w/16, cell_height = h/8;
+        	int color = ((j / cell_width) & 1) ^ ((i / cell_height) & 1);
+        	pixels[i * w + j] = color ? 0xffffffff : 0x00000000;
+    	    }
+	}
+
         glTexSubImage2D(
             GL_TEXTURE_2D,
             level,
             0, 0, // offset
-            tex_width>>level, tex_height>>level,
+            w, h,
             GL_RGBA, GL_UNSIGNED_BYTE,
             pixels);
     }
@@ -91,6 +101,8 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     float aspect = (float)width / height;
     float fov = M_PI / 4.0;
 
+    mat4 model_matrix = mat_euler((vec4){ t, 0.0, 0.0, 0.0 });
+
     glUseProgram(gfx->program);
     int index = glGetUniformLocation(gfx->program, "aspect");
     glUniform1f(index, aspect);
@@ -99,6 +111,9 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
 
     index = glGetUniformLocation(gfx->program, "tex");
     glUniform1i(index, 0);
+
+    index = glGetUniformLocation(gfx->program, "model_matrix");
+    glUniformMatrix4fv(index, 1, GL_FALSE, &model_matrix);
 
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, gfx->texture);
