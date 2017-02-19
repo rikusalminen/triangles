@@ -13,44 +13,47 @@ in vec4 pos;
 
 out vec4 color;
 
+vec2 ray_sphere_intersect(vec3 origin, vec3 ray, vec4 sphere) {
+    vec3 s = sphere.xyz - origin;
+    float a = dot(ray, ray);
+    float b = -2.0 * dot(ray, s);
+    float c = dot(s, s) - sphere.w*sphere.w;
+    float d = b*b - 4.0*a*c;
+    return d < 0.0 ?
+        vec2(-1.0, -1.0) :
+        (vec2((-b - sqrt(d))/(2.0*a), (-b + sqrt(d)/(2.0*a))));
+}
+
 void main() {
     // focal length
     float focal = 1.0 / tan(fov);
 
+    // camera position
+    vec3 origin = vec3(0.0, 0.0, 0.0);
+
     // ray from camera to near plane
-    //vec4 v = vec4((pos.x/aspect) / focal, pos.y / focal, focal, 0.0);
-    vec4 v = vec4(
+    //vec3 ray = vec3(pos.x / focal, pos.y / (aspect*focal), -focal, 0.0);
+    vec3 ray = vec3(
         (pos.x + dFdx(pos.x) * gl_SamplePosition.x) / focal,
         (pos.y + dFdy(pos.y) * gl_SamplePosition.y) / (aspect * focal),
-        -focal,
-        0.0);
+        -focal);
+
     // sphere position
-    vec4 s = vec4(0.0, 0.0, -5.0, 0.0);
-    // sphere radius (XXX: use s.w = -r?)
-    float r = 2.0;
+    vec4 sphere = vec4(0.0, 0.0, -5.0, 2.0);
 
-    // quadratic equation: t^2 v^2 - 2t dot(v, s) + s^2 = r^2
-    // coefficients for quadratic formula
-    float a = dot(v, v);
-    float b = -2.0 * dot(v, s);
-    float c = dot(s, s) - r*r;
-    // discriminant
-    float d = b*b - 4.0*a*c;
+    float t = ray_sphere_intersect(origin, ray, sphere).x;
 
-    // discard fragments/samples where discriminant is negative
-    //if(d < 0.0)
-        //discard;
-    if(d < 0.0)
+    // discard fragments/samples that don't hit sphere
+    //if(t < 0.0) discard;
+    if(t < 0.0)
         gl_SampleMask[gl_SampleID/32] &= ~(1 << (gl_SampleID%32));
     else
         gl_SampleMask[gl_SampleID/32] |= 1 << (gl_SampleID%32);
 
-    // near solution to quadratic equation
-    float t = (-b - sqrt(d)) / (2.0*a);
-    // point on sphere
-    vec4 p = t*v - s;
+   // point on sphere
+    vec4 p = vec4(origin + t*ray - sphere.xyz, 1.0);
 
-    gl_FragDepth = p.z / r;
+    //gl_FragDepth = p.z / sphere.w;
 
     // transform by inverse model matrix
     p = inverse(model_matrix) * p;
