@@ -22,7 +22,7 @@ void main() {
     vec4 v = vec4(
         (pos.x + dFdx(pos.x) * gl_SamplePosition.x) / focal,
         (pos.y + dFdy(pos.y) * gl_SamplePosition.y) / (aspect * focal),
-        focal,
+        -focal,
         0.0);
     // sphere position
     vec4 s = vec4(0.0, 0.0, -5.0, 0.0);
@@ -60,10 +60,10 @@ void main() {
     float lat = asin(p.z / length(p));
 
     // calculate uv coordinates and grid
-    int num_grid = 16;
+    vec2 num_grid = vec2(16, 8);;
     vec2 uv = vec2(0.5 + 0.5*(lon / pi), 0.5 + (lat / pi));
-    //vec2 grid = abs(fract(num_grid*uv - 0.5) - 0.5) / fwidth(num_grid*uv);
-    //float line = min(min(grid.x, grid.y), 1.0);
+    vec2 grid = abs(fract(num_grid*uv - 0.5) - 0.5) / fwidth(num_grid*uv);
+    float line = min(min(grid.x, grid.y), 1.0);
 
     // diffuse lighting
     vec4 normal = normalize(p);
@@ -77,6 +77,6 @@ void main() {
     vec4 ambient_color = vec4(0.2, 0.2, 0.2, 1.0);
     vec4 diffuse_color = vec4(0.2, 0.7, 0.4, 1.0);
     vec4 grid_color = vec4(1.0, 1.0, 1.0, 1.0);
-    color = tex_color * mix(ambient_color, diffuse_color, diffuse);
+    color = mix(grid_color, tex_color * mix(ambient_color, diffuse_color, diffuse), line);
     //color = tex_color * mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
 }
