@@ -56,13 +56,13 @@ static void init_gfx(GLWTWindow *window, struct gfx *gfx)
 
         int w = tex_width >> level, h = tex_height >> level;
         printf("level: %d   w: %d  h: %d\n", level, w, h);
-	for(int i = 0; i < h; ++i) {
-    	    for(int j = 0; j < w; ++j) {
-        	int cell_width = w/16, cell_height = h/8;
-        	int color = ((j / cell_width) & 1) ^ ((i / cell_height) & 1);
-        	pixels[i * w + j] = color ? 0xffffffff : 0x00000000;
-    	    }
-	}
+        for(int i = 0; i < h; ++i) {
+            for(int j = 0; j < w; ++j) {
+                int cell_width = w/16, cell_height = h/8;
+                int color = ((j / cell_width) & 1) ^ ((i / cell_height) & 1);
+                pixels[i * w + j] = color ? 0xffffffff : 0x00000000;
+            }
+        }
 
         glTexSubImage2D(
             GL_TEXTURE_2D,
