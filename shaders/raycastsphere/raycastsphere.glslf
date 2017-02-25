@@ -20,7 +20,7 @@ vec2 ray_sphere_intersect(vec3 origin, vec3 ray, vec4 sphere) {
     float c = dot(s, s) - sphere.w*sphere.w;
     float d = b*b - 4.0*a*c;
     return d < 0.0 ?
-        vec2(-1.0, -1.0) :
+        vec2(1.0, -1.0) :
         (vec2((-b - sqrt(d))/(2.0*a), (-b + sqrt(d)/(2.0*a))));
 }
 
@@ -41,19 +41,20 @@ void main() {
     // sphere position
     vec4 sphere = vec4(0.0, 0.0, -5.0, 2.0);
 
-    float t = ray_sphere_intersect(origin, ray, sphere).x;
+    vec2 ts = ray_sphere_intersect(origin, ray, sphere);
 
     // discard fragments/samples that don't hit sphere
-    //if(t < 0.0) discard;
-    if(t < 0.0)
+    //if(ts.x > ts.y) discard;
+    if(ts.x > ts.y)
         gl_SampleMask[gl_SampleID/32] &= ~(1 << (gl_SampleID%32));
     else
         gl_SampleMask[gl_SampleID/32] |= 1 << (gl_SampleID%32);
 
-   // point on sphere
+    // point on sphere
+    float t = ts.x;
     vec4 p = vec4(origin + t*ray - sphere.xyz, 1.0);
 
-    //gl_FragDepth = p.z / sphere.w;
+    gl_FragDepth = p.z / sphere.w;
 
     // transform by inverse model matrix
     p = inverse(model_matrix) * p;
@@ -78,7 +79,7 @@ void main() {
 
     // apply color
     vec4 ambient_color = vec4(0.2, 0.2, 0.2, 1.0);
-    vec4 diffuse_color = vec4(0.2, 0.7, 0.4, 1.0);
+    vec4 diffuse_color = vec4(0.8, 0.8, 0.8, 1.0);
     vec4 grid_color = vec4(1.0, 1.0, 1.0, 1.0);
     color = mix(grid_color, tex_color * mix(ambient_color, diffuse_color, diffuse), line);
     //color = tex_color * mix(grid_color, mix(ambient_color, diffuse_color, diffuse), line);
