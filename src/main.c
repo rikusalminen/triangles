@@ -92,7 +92,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     for(unsigned i = 0; i < num_queries; ++i)
         glBeginQuery(query_targets[i], gfx->queries[i]);
 
-    const float background[] = { 0.2, 0.4, 0.7, 1.0 };
+    const float background[] = { 0.0,  0.0,  0.0, 0.0 };
     glClearBufferfv(GL_COLOR, 0, background);
     glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0, 0);
 
@@ -101,7 +101,7 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     float aspect = (float)width / height;
     float fov = M_PI / 4.0;
 
-    mat4 model_matrix = mat_euler((vec4){ t, 0.0, 0.0, 0.0 });
+    //mat4 model_matrix = mat_euler((vec4){ t, 0.0, 0.0, 0.0 });
 
     glUseProgram(gfx->program);
     int index = glGetUniformLocation(gfx->program, "aspect");
@@ -109,11 +109,15 @@ static void paint(struct gfx *gfx, int width, int height, int frame)
     index = glGetUniformLocation(gfx->program, "fov");
     glUniform1f(index, fov);
 
-    index = glGetUniformLocation(gfx->program, "tex");
-    glUniform1i(index, 0);
+    index = glGetUniformLocation(gfx->program, "timer");
+    glUniform1f(index, t);
 
-    index = glGetUniformLocation(gfx->program, "model_matrix");
-    glUniformMatrix4fv(index, 1, GL_FALSE, &model_matrix);
+
+    //index = glGetUniformLocation(gfx->program, "tex");
+    //glUniform1i(index, 0);
+
+    //index = glGetUniformLocation(gfx->program, "model_matrix");
+    //glUniformMatrix4fv(index, 1, GL_FALSE, &model_matrix);
 
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, gfx->texture);
@@ -174,6 +178,8 @@ static void main_loop(GLWTWindow *window)
         glwtSwapBuffers(window);
 
         glwtEventHandle(0);
+
+        //break;
     }
 
     quit_gfx(window, &gfx);
